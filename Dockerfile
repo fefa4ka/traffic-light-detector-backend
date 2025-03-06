@@ -2,11 +2,10 @@
 FROM eclipse-mosquitto:latest
 
 # Install required dependencies
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     python3 \
-    python3-pip \
-    sqlite3 && \
-    rm -rf /var/lib/apt/lists/*
+    py3-pip \
+    sqlite
 
 # Expose default Mosquitto ports
 EXPOSE 1883 9001
