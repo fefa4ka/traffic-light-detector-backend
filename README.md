@@ -31,6 +31,34 @@ For example:
 
 The same rules apply to other traffic lights. These mappings allow the system to infer the active state of a complete intersection.
 
+## Database Implementation for Channel Mapping
+The backend uses an SQLite database to track traffic lights and their corresponding channels. This ensures efficient storage and retrieval of telemetry data.
+
+### Table Structure:
+- `traffic_lights`: Stores traffic light metadata, including location and intersection association.
+- `traffic_light_channels`: Maps individual channel bitmasks to specific traffic lights.
+
+### Example Table Definitions:
+```sql
+CREATE TABLE traffic_lights (
+    light_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    intersection_id TEXT NOT NULL,
+    description TEXT
+);
+
+CREATE TABLE traffic_light_channels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    light_id INTEGER NOT NULL,
+    channel_mask INTEGER NOT NULL,
+    FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
+);
+```
+
+### How it Works:
+1. Incoming telemetry messages contain a bitmask representing active channels.
+2. The system queries `traffic_light_channels` to find which traffic lights correspond to the active channels.
+3. The aggregated state is stored and used for determining the overall traffic condition at an intersection.
+
 ## Grouping Traffic Lights into an Intersection
 Each intersection consists of multiple traffic lights, which need to be grouped logically. The backend associates traffic lights based on predefined intersection identifiers.
 
