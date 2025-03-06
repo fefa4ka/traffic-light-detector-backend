@@ -45,6 +45,27 @@ def save_to_db(name, password):
     conn.commit()
     conn.close()
 
+def get_or_create_user(detector_id):
+    """Retrieve stored credentials or create new ones if they don't exist."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT name, password FROM detectors WHERE name=?", (f"detector_{detector_id}",))
+    result = cursor.fetchone()
+
+    if result:
+        conn.close()
+        return result[0], result[1]
+
+    # If not found, create a new user
+    name = f"detector_{detector_id}"
+    password = generate_password()
+    create_mqtt_user(name, password)
+    save_to_db(name, password)
+
+    conn.close()
+    return name, password   
+
 def main():
     parser = argparse.ArgumentParser(description="Register a new traffic light detector.")
     parser.add_argument("name", type=str, help="Name of the traffic light detector")
