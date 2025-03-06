@@ -12,6 +12,9 @@ RUN apk add --no-cache \
 VOLUME ["/data"]
 RUN mkdir -p /data && touch /data/passwords /data/detectors.db && chmod 600 /data/passwords
 
+# Copy telemetry.proto before compiling
+COPY telemetry.proto /app/telemetry.proto
+
 # Compile protobuf files
 RUN protoc --python_out=/app /app/telemetry.proto
 
