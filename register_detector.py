@@ -13,8 +13,8 @@ def generate_password():
 
 def create_mqtt_user(name, password):
     """Create an MQTT user with the given credentials."""
-    cmd = f"mosquitto_passwd -b {MOSQUITTO_PASSWD_FILE} {name} {password}"
-    subprocess.run(cmd, shell=True, check=True)
+    cmd = ["mosquitto_passwd", "-b", MOSQUITTO_PASSWD_FILE, name, password]
+    subprocess.run(cmd, check=True)
 
 def save_to_db(name, password):
     """Save detector information to the SQLite database."""
