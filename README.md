@@ -227,6 +227,80 @@ Each traffic light object:
 
 5. **Prediction Module**  
    - Implement an algorithm to estimate the next expected light change timing from stored data.
+   
+### Prediction Algorithm Implementation
+The system predicts time to next state change using historical duration patterns from the `traffic_light_states` table.
+
+#### Database Schema Addition:
+```sql
+CREATE TABLE state_durations (
+    light_id INTEGER NOT NULL,
+    previous_state TEXT NOT NULL,
+    next_state TEXT NOT NULL,
+    average_duration REAL NOT NULL,
+    last_updated DATETIME NOT NULL,
+    PRIMARY KEY (light_id, previous_state, next_state),
+    FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
+);
+```
+
+#### Algorithm Steps:
+1. For each state transition (RED→GREEN, GREEN→RED):
+   - Calculate average duration from historical transitions
+   - Store weighted average giving more importance to recent transitions
+   - Maintain minimum duration safety limits (e.g. 30s minimum for any phase)
+
+2. Real-time Prediction:
+```python
+def predict_next_change(light_id, current_state):
+    """
+    Returns: (predicted_next_state, seconds_remaining)
+    """
+    # Get average duration for this state transition
+    history = query_db('''
+        SELECT previous_state, next_state, average_duration 
+        FROM state_durations
+        WHERE light_id = ? AND previous_state = ?
+        ORDER BY last_updated DESC
+        LIMIT 1
+    ''', (light_id, current_state))
+    
+    if history:
+        avg_duration = history[0]['average_duration']
+        # Get time since current state began
+        current_state_duration = query_db('''
+            SELECT strftime('%s','now') - strftime('%s',timestamp) 
+            FROM traffic_light_states
+            WHERE light_id = ?
+            ORDER BY timestamp DESC 
+            LIMIT 1
+        ''', (light_id,))[0][0]
+        
+        time_remaining = avg_duration - current_state_duration
+        return (history[0]['next_state'], max(0, time_remaining))
+    
+    # Fallback to default values if no history
+    default_duration = 60 if current_state == 'GREEN' else 120
+    next_state = 'RED' if current_state == 'GREEN' else 'GREEN'
+    return (next_state, default_duration)
+```
+
+3. Maintenance Process:
+- Daily recalculation of averages
+- Remove outliers (99th percentile)
+- Update state_durations table with new averages
+- Automatic adjustment for daily patterns (morning/evening rush hours)
+
+#### Example Calculation:
+1. Historical transitions for light 1:
+   - RED → GREEN: 120s, 125s, 118s (average: 121s)
+   - GREEN → RED: 60s, 55s, 65s (average: 60s)
+
+2. Current state: GREEN (started 45 seconds ago)
+3. Predicted time remaining: 60s - 45s = 15s
+4. Next predicted state: RED
+
+The system updates predictions in real-time as new state transitions are recorded.
 
 6. **Deployment and Monitoring**  
    - Containerize services, configure logging, and ensure system reliability.
