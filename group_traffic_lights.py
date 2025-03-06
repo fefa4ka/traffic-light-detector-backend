@@ -18,7 +18,8 @@ def setup_traffic_light():
         CREATE TABLE IF NOT EXISTS traffic_lights (
             light_id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,
-            location TEXT NOT NULL
+            location TEXT NOT NULL,
+            intersection_id TEXT NOT NULL DEFAULT 'UNGROUPED'
         )
     """)
 
