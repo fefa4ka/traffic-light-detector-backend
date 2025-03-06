@@ -13,12 +13,14 @@ def generate_password():
 
 def create_mqtt_user(name, password):
     """Create an MQTT user with the given credentials."""
-    # Ensure the password file exists
+    # Ensure the password file and its directory exist
+    os.makedirs(os.path.dirname(MOSQUITTO_PASSWD_FILE), exist_ok=True)
     if not os.path.exists(MOSQUITTO_PASSWD_FILE):
         open(MOSQUITTO_PASSWD_FILE, 'a').close()
+        os.chmod(MOSQUITTO_PASSWD_FILE, 0o600)  # Secure file permissions
 
     cmd = ["mosquitto_passwd", "-b", MOSQUITTO_PASSWD_FILE, name, password]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 def save_to_db(name, password):
     """Save detector information to the SQLite database."""
