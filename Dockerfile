@@ -34,6 +34,9 @@ COPY mosquitto.conf /mosquitto/config/mosquitto.conf
 COPY register_detector.py /app/register_detector.py
 COPY list_detectors.py /app/list_detectors.py
 COPY test_mqtt_publisher.py /app/test_mqtt_publisher.py
+COPY mqtt_listener.py /app/mqtt_listener.py
+COPY group_traffic_lights.py /app/group_traffic_lights.py
+COPY display_traffic_lights.py /app/display_traffic_lights.py
 
 # Set the working directory
 WORKDIR /app
