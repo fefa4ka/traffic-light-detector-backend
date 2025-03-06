@@ -46,9 +46,17 @@ message mqtt_msg_t {
 ```
 The `channels` field is a bit mask indicating active signals.
 
-## API
-Endpoint: `/status/{intersection_id}`
-`intersection_id` - identifier of the traffic light object that unites the signals to traffic light, and the traffic lights at the intersection 
+## API Overview
+
+The backend provides a REST API to retrieve real-time traffic light status.
+
+### Endpoint: `GET /status/{intersection_id}`
+Retrieves the current status of an intersection.
+
+- **Path Parameter:** `intersection_id` (string) - Unique identifier of the monitored intersection.
+- **Response:** JSON object containing the latest traffic signal data for that intersection.
+
+Example Response:
 
 ```json
 {
@@ -102,7 +110,19 @@ Endpoint: `/status/{intersection_id}`
   ]
 }
 ```
-## TODO List
+### Response Fields:
+- `intersection_id` (string) - Identifier for the intersection.
+- `timestamp` (ISO 8601 string) - Timestamp of the latest signal reading.
+- `traffic_lights` (array) - List of traffic lights at the intersection.
+
+Each traffic light object:
+- `light_id` (string) - Unique identifier for the traffic light.
+- `current_status` (string) - Current signal state (`RED` or `GREEN`).
+- `time_to_next_change_seconds` (integer) - Estimated seconds until the next signal change.
+- `predicted_next_status` (string) - Expected next signal state (`RED` or `GREEN`).
+- `location` (object) - GPS coordinates of the traffic light.
+    - `latitude` (float)
+    - `longitude` (float)
 - [ ] Docker with Mosquitto
 - [ ] Script that listens to Mosquitto and stores telemetry in a database
 - [ ] Script that aggregates distinct channels of light for specific traffic lights
