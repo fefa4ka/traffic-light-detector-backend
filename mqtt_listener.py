@@ -41,10 +41,9 @@ def on_message(client, userdata, msg):
         save_telemetry(telemetry.id, telemetry.channels, telemetry.timestamp, telemetry.counter)
         print(f"Stored telemetry: ID={telemetry.id}, Timestamp={telemetry.timestamp}, Counter={telemetry.counter}")
         
-        # Decode channels bitmask and print the state of each channel
-        for i in range(32):
-            state = "ON" if (telemetry.channels & (1 << i)) else "OFF"
-            print(f"  Channel {i}: {state}")
+        # Decode channels bitmask and print the state of each channel in a single line
+        channel_states = ["ON" if (telemetry.channels & (1 << i)) else "OFF" for i in range(32)]
+        print(f"  Channel States: {', '.join(channel_states)}")
     
     except Exception as e:
         print(f"Failed to process message: {e}")
