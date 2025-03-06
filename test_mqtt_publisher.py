@@ -22,7 +22,7 @@ def generate_mock_data():
     global counter
     telemetry = telemetry_pb2.mqtt_msg_t()
     telemetry.id = DETECTOR_ID
-    telemetry.channels = random.randint(1, 2**32 - 1)  # Random bitmask for 32 channels
+    telemetry.channels = random.randint(1, 2**31 - 1)  # Random bitmask for 32 channels
     telemetry.timestamp = int(time.time())
     counter += 1
     telemetry.counter = counter
