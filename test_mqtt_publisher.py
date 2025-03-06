@@ -1,14 +1,36 @@
 import time
 import base64
+import sqlite3
 import paho.mqtt.client as mqtt
 import telemetry_pb2  # Import generated protobuf module
+import register_detector  # Import detector registration module
 
+DB_PATH = "/data/detectors.db"
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPIC = "$me/device/state"
 DETECTOR_ID = 1
-USERNAME = "test_detector"
-PASSWORD = "test_password"
+
+def get_or_create_user(detector_id):
+    """Retrieve stored credentials or create new ones if they don't exist."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT name, password FROM detectors WHERE name=?", (f"detector_{detector_id}",))
+    result = cursor.fetchone()
+
+    if result:
+        conn.close()
+        return result[0], result[1]
+
+    # If not found, create a new user
+    name = f"detector_{detector_id}"
+    password = register_detector.generate_password()
+    register_detector.create_mqtt_user(name, password)
+    register_detector.save_to_db(name, password)
+
+    conn.close()
+    return name, password
 
 def generate_mock_data():
     """Generate mock telemetry data"""
@@ -19,6 +41,8 @@ def generate_mock_data():
     telemetry.counter = 1
 
     return base64.b64encode(telemetry.SerializeToString()).decode()
+
+USERNAME, PASSWORD = get_or_create_user(DETECTOR_ID)
 
 def main():
     client = mqtt.Client()
