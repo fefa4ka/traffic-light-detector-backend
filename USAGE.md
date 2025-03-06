@@ -61,5 +61,5 @@ To update the container with new changes:
 docker stop tld_backend
 docker rm tld_backend
 docker build -t traffic-light-backend .
-docker run -d --name tld_backend -p 1883:1883 -p 9001:9001 traffic-light-backend
+docker run -d --name tld_backend -p 1883:1883 -p 9001:9001 -v $(pwd)/data:/data traffic-light-backend
 ```
