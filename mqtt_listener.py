@@ -178,9 +178,9 @@ def on_message(client, userdata, msg):
         print(f"  Detector ID: {telemetry.id}")
         print(f"  Timestamp: {datetime.fromtimestamp(telemetry.timestamp).isoformat()}")
         print("  Traffic Light States:")
-        for light_id, state in states.items():
-            status = "RED" if state['red'] else "GREEN" if state['green'] else "UNKNOWN"
-            print(f"    {state['name']} ({state['location']}): {status}")
+        for light_id, light_data in states['lights'].items():
+            status = "RED" if light_data['red'] else "GREEN" if light_data['green'] else "UNKNOWN"
+            print(f"    {light_data['name']} ({light_data['location']}): {status}")
         
         # Print raw channel states for debugging
         channel_states = ["ON" if (telemetry.channels & (1 << i)) else "OFF" for i in range(32)]
