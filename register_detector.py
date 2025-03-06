@@ -13,6 +13,10 @@ def generate_password():
 
 def create_mqtt_user(name, password):
     """Create an MQTT user with the given credentials."""
+    # Ensure the password file exists
+    if not os.path.exists(MOSQUITTO_PASSWD_FILE):
+        open(MOSQUITTO_PASSWD_FILE, 'a').close()
+
     cmd = ["mosquitto_passwd", "-b", MOSQUITTO_PASSWD_FILE, name, password]
     subprocess.run(cmd, check=True)
 
