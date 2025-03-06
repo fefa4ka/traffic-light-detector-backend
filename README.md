@@ -22,6 +22,15 @@ Each channel represents a signal from some light, for example:
 * Channel 4 - Red light of the traffic light B
 * Channel 8 - Green light of the traffic light B
 
+## Mapping Channels to Traffic Lights
+To determine the current state of a traffic light, the backend groups related channels under a single traffic light entity.
+
+For example:
+- If `Channel 1` (Red light A) is active and `Channel 2` (Green light A) is inactive → Traffic light A is RED.
+- If `Channel 1` (Red light A) is inactive and `Channel 2` (Green light A) is active → Traffic light A is GREEN.
+
+The same rules apply to other traffic lights. These mappings allow the system to infer the active state of a complete intersection.
+
 # Architecture and Implementation
 
 ## System Overview
