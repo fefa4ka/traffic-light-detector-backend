@@ -4,7 +4,7 @@ To add a new traffic light detector, follow these steps:
 
 1. **Register the detector using Docker:**
    ```bash
-   docker exec tld_backend python3 register_detector.py detector_name
+   docker exec tld_backend python3 /app/register_detector.py detector_name
    ```
 
    - Replace `detector_name` with the unique identifier for the new detector.

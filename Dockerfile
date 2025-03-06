@@ -7,6 +7,12 @@ RUN apk add --no-cache \
     py3-pip \
     sqlite
 
+# Copy the registration script into the container
+COPY register_detector.py /app/register_detector.py
+
+# Set the working directory
+WORKDIR /app
+
 # Expose default Mosquitto ports
 EXPOSE 1883 9001
 
