@@ -22,7 +22,11 @@ def generate_mock_data():
     global counter
     telemetry = telemetry_pb2.mqtt_msg_t()
     telemetry.id = DETECTOR_ID
-    telemetry.channels = random.randint(1, 2**31 - 1)  # Random bitmask for 32 channels
+    channels = 0
+    for i in range(16):  # 16 traffic lights
+        # For each traffic light, activate either the RED or GREEN light
+        channels |= (1 << (i * 2 + random.choice([0, 1])))
+    telemetry.channels = channels
     telemetry.timestamp = int(time.time())
     counter += 1
     telemetry.counter = counter
