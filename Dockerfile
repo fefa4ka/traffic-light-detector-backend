@@ -8,10 +8,16 @@ RUN apk add --no-cache \
     sqlite \
     protobuf 
 
-# Install Python dependencies
-RUN pip3 install --no-cache-dir \
+# Set up a virtual environment
+RUN python3 -m venv /app/venv
+
+# Activate the virtual environment and install dependencies
+RUN /app/venv/bin/pip install --no-cache-dir \
     paho-mqtt \
     protobuf
+
+# Ensure all scripts use the virtual environment's Python
+ENV PATH="/app/venv/bin:$PATH"
 
 # Ensure external storage for passwords and database
 VOLUME ["/data"]
