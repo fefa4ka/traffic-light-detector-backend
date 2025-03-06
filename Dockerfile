@@ -15,8 +15,8 @@ RUN mkdir -p /data && touch /data/passwords /data/detectors.db && chmod 600 /dat
 # Copy telemetry.proto before compiling
 COPY telemetry.proto /app/telemetry.proto
 
-# Compile protobuf files
-RUN protoc --python_out=/app /app/telemetry.proto
+# Compile protobuf files with correct proto path
+RUN protoc --proto_path=/app --python_out=/app /app/telemetry.proto
 
 # Copy Mosquitto authentication configuration
 COPY mosquitto.conf /mosquitto/config/mosquitto.conf
