@@ -107,6 +107,14 @@ def save_telemetry(detector_id, channels, timestamp, counter):
             channels INTEGER NOT NULL,
             timestamp INTEGER NOT NULL,
             counter INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS traffic_light_states (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            light_id INTEGER NOT NULL,
+            state TEXT CHECK(state IN ('RED', 'GREEN')) NOT NULL,
+            timestamp DATETIME NOT NULL,
+            FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
         )
     """)
     
