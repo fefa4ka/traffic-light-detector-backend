@@ -71,6 +71,7 @@ message mqtt_msg_t {
 }
 ```
 The `channels` field is a bit mask indicating active signals.
+The `id` field is a unique identifier for the traffic light detector.
 
 ## API Overview
 
@@ -155,7 +156,7 @@ Each traffic light object:
 ## Implementation Plan
 
 1. **MQTT Broker Setup**  
-   - Deploy a Mosquitto MQTT broker to receive telemetry from traffic lights.
+   - [x] Deploy a Mosquitto MQTT broker to receive telemetry from traffic lights.
 
 2. **Telemetry Listener**  
    - Implement a service that subscribes to MQTT topics and stores received messages in a database.
