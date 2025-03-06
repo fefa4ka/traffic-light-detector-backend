@@ -198,7 +198,7 @@ def on_message(client, userdata, msg):
             # Debug logging for state determination
             print(f"      [DEBUG] Detector: {telemetry.id}, Light ID: {light_id}")
             print(f"      [DEBUG] Red state: {light_data['red']}, Green state: {light_data['green']}")
-            print(f"      [DEBUG] Raw channel mask: {bin(telemetry.channels)}")
+            print(f"      [DEBUG] Raw channel mask: 0b{format(telemetry.channels, '032b')}")
             # Get channel config for this light
             light_config = get_traffic_light_config(telemetry.id)
             red_masks = [str(c[1]) for c in light_config if c[0] == light_id and c[2] == 'RED']
