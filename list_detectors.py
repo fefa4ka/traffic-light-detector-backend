@@ -1,6 +1,6 @@
 import sqlite3
 
-DB_PATH = "detectors.db"
+DB_PATH = "/data/detectors.db"
 
 def list_detectors():
     """Retrieve and print all registered detectors with their passwords."""

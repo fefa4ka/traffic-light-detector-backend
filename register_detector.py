@@ -4,8 +4,8 @@ import os
 import sqlite3
 import subprocess
 
-DB_PATH = "detectors.db"
-MOSQUITTO_PASSWD_FILE = "/mosquitto/config/passwords"
+DB_PATH = "/data/detectors.db"
+MOSQUITTO_PASSWD_FILE = "/data/passwords"
 
 def generate_password():
     """Generate a random secure password."""

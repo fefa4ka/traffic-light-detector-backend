@@ -7,8 +7,9 @@ RUN apk add --no-cache \
     py3-pip \
     sqlite
 
-# Ensure the password file exists with correct permissions
-RUN mkdir -p /mosquitto/config && touch /mosquitto/config/passwords && chmod 600 /mosquitto/config/passwords
+# Ensure external storage for passwords and database
+VOLUME ["/data"]
+RUN mkdir -p /data && touch /data/passwords /data/detectors.db && chmod 600 /data/passwords
 
 # Copy Mosquitto authentication configuration
 COPY mosquitto.conf /mosquitto/config/mosquitto.conf
