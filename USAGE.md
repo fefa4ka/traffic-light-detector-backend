@@ -16,6 +16,26 @@ To add a new traffic light detector, follow these steps:
 
 This process ensures that new detectors are securely registered with MQTT and stored in the database.
 
+# Verifying Detector Registration
+
+## Check if the user was created in Mosquitto
+To verify that the MQTT user was created, inspect the password file inside the container:
+
+```bash
+docker exec tld_backend cat /mosquitto/config/passwords
+```
+
+If the detector appears in the file, it was successfully registered.
+
+## Test Connection to the MQTT Broker
+To check that the new detector can connect to the broker, use the following command:
+
+```bash
+mosquitto_sub -h localhost -p 1883 -u detector_name -P detector_password -t "#"
+```
+
+Replace `detector_name` and `detector_password` with the credentials generated during registration. If the connection succeeds, the detector is properly configured.
+
 # Deploying and Updating the Docker Container
 
 ## Deploy
