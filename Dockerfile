@@ -31,8 +31,7 @@ RUN protoc --proto_path=/app --python_out=/app /app/telemetry.proto
 
 # Copy Mosquitto authentication configuration
 COPY mosquitto.conf /mosquitto/config/mosquitto.conf
-# Copy all Python scripts dynamically
-COPY *.py /app/
+# Python scripts will be mounted at runtime
 
 # Set the working directory
 WORKDIR /app
