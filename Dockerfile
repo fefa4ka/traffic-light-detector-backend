@@ -13,6 +13,7 @@ RUN mkdir -p /mosquitto/config && touch /mosquitto/config/passwords && chmod 600
 # Copy Mosquitto authentication configuration
 COPY mosquitto.conf /mosquitto/config/mosquitto.conf
 COPY register_detector.py /app/register_detector.py
+COPY list_detectors.py /app/list_detectors.py
 
 # Set the working directory
 WORKDIR /app

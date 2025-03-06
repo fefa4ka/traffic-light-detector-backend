@@ -16,6 +16,16 @@ To add a new traffic light detector, follow these steps:
 
 This process ensures that new detectors are securely registered with MQTT and stored in the database.
 
+# Listing Registered Traffic Light Detectors
+
+To list all registered traffic light detectors, run:
+
+```bash
+docker exec tld_backend python3 /app/list_detectors.py
+```
+
+This will output the detector names and their associated passwords.
+
 # Verifying Detector Registration
 
 ## Check if the user was created in Mosquitto
