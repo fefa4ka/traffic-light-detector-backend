@@ -41,14 +41,24 @@ def setup_traffic_light():
     cursor.execute("INSERT INTO traffic_lights (name, location) VALUES (?, ?)", (name, location))
     light_id = cursor.lastrowid
 
-    red_channel = interactive_input("Enter channel number for RED signal: ")
-    green_channel = interactive_input("Enter channel number for GREEN signal: ")
+    # Get and validate channel numbers
+    red_channel = int(interactive_input("Enter channel number (0-31) for RED signal: "))
+    green_channel = int(interactive_input("Enter channel number (0-31) for GREEN signal: "))
+    
+    if red_channel == green_channel:
+        raise ValueError("RED and GREEN cannot use the same channel number")
+    if not (0 <= red_channel <= 31) or not (0 <= green_channel <= 31):
+        raise ValueError("Channel numbers must be between 0-31")
+
+    # Convert to bitmasks
+    red_mask = 1 << red_channel
+    green_mask = 1 << green_channel
 
     cursor.execute("INSERT INTO traffic_light_channels (light_id, detector_id, channel_mask, signal_color) VALUES (?, ?, ?, ?)",
-                   (light_id, detector_id, red_channel, "RED"))
+                   (light_id, detector_id, red_mask, "RED"))
 
     cursor.execute("INSERT INTO traffic_light_channels (light_id, detector_id, channel_mask, signal_color) VALUES (?, ?, ?, ?)",
-                   (light_id, detector_id, green_channel, "GREEN"))
+                   (light_id, detector_id, green_mask, "GREEN"))
 
     conn.commit()
     conn.close()

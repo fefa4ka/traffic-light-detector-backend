@@ -66,11 +66,17 @@ def process_traffic_states(detector_id, channels):
                 'intersection_id': intersection_id
             }
         
-        # Update signal state
+        # Update signal state with conflict detection
         if signal_color == 'RED':
             states[light_id]['red'] = is_active
+            # Ensure green is off if red is on
+            if is_active:
+                states[light_id]['green'] = False
         elif signal_color == 'GREEN':
             states[light_id]['green'] = is_active
+            # Ensure red is off if green is on
+            if is_active:
+                states[light_id]['red'] = False
             
         # Track state in intersection grouping
         light_state = 'RED' if states[light_id]['red'] else 'GREEN' if states[light_id]['green'] else 'UNKNOWN'
