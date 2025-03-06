@@ -7,7 +7,8 @@ RUN apk add --no-cache \
     py3-pip \
     sqlite
 
-# Copy the registration script into the container
+# Copy Mosquitto authentication configuration
+COPY mosquitto.conf /mosquitto/config/mosquitto.conf
 COPY register_detector.py /app/register_detector.py
 
 # Set the working directory
