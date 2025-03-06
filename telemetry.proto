@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+message mqtt_msg_t {
+    int32 channels = 1;
+    int32 timestamp = 2;
+    int32 id = 3;
+    int32 counter = 4;
+}
