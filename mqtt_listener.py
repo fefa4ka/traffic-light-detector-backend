@@ -16,41 +16,83 @@ LISTENER_USERNAME = "listener"
 # Cache for traffic light states
 intersection_states = defaultdict(dict)
 
+# Cache for detector configurations
+_detector_cache = {}
+_last_cache_update = 0
+
 def get_traffic_light_config(detector_id):
-    """Get traffic light configuration for a detector."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    """Get traffic light configuration with caching."""
+    global _last_cache_update
     
-    cursor.execute("""
-        SELECT tlc.light_id, tlc.channel_mask, tlc.signal_color, tl.name, tl.location
-        FROM traffic_light_channels tlc
-        JOIN traffic_lights tl ON tlc.light_id = tl.light_id
-        WHERE tlc.detector_id = ?
-    """, (detector_id,))
-    
-    config = cursor.fetchall()
-    conn.close()
-    return config
+    # Refresh cache every 5 minutes
+    if (datetime.now().timestamp() - _last_cache_update) > 300:
+        _detector_cache.clear()
+        
+    if detector_id not in _detector_cache:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT tlc.light_id, tlc.channel_mask, tlc.signal_color, 
+                   tl.intersection_id, tl.name, tl.location
+            FROM traffic_light_channels tlc
+            JOIN traffic_lights tl ON tlc.light_id = tl.light_id
+            WHERE tlc.detector_id = ?
+        """, (detector_id,))
+        
+        _detector_cache[detector_id] = cursor.fetchall()
+        conn.close()
+        _last_cache_update = datetime.now().timestamp()
+        
+    return _detector_cache[detector_id]
 
 def process_traffic_states(detector_id, channels):
-    """Process raw channels into traffic light states."""
+    """Process raw channels into traffic light states with intersection grouping."""
     config = get_traffic_light_config(detector_id)
     states = {}
+    intersections = defaultdict(dict)
     
-    for light_id, channel_mask, signal_color, name, location in config:
+    for light_id, channel_mask, signal_color, intersection_id, name, location in config:
+        # Determine if this signal is active
+        is_active = bool(channels & channel_mask)
+        
+        # Initialize light state if not exists
         if light_id not in states:
             states[light_id] = {
                 'name': name,
                 'location': location,
                 'red': False,
-                'green': False
+                'green': False,
+                'intersection_id': intersection_id
             }
         
-        if channels & channel_mask:
-            states[light_id]['red'] = signal_color == 'RED'
-            states[light_id]['green'] = signal_color == 'GREEN'
+        # Update signal state
+        if signal_color == 'RED':
+            states[light_id]['red'] = is_active
+        elif signal_color == 'GREEN':
+            states[light_id]['green'] = is_active
+            
+        # Track state in intersection grouping
+        light_state = 'RED' if states[light_id]['red'] else 'GREEN' if states[light_id]['green'] else 'UNKNOWN'
+        intersections[intersection_id].setdefault('lights', {})[light_id] = {
+            'name': name,
+            'state': light_state,
+            'location': location
+        }
     
-    return states
+    # Determine intersection overall state
+    for intersection_id, data in intersections.items():
+        all_lights = list(data['lights'].values())
+        red_lights = [l for l in all_lights if l['state'] == 'RED']
+        
+        # Intersection is considered RED if any light is RED
+        intersections[intersection_id]['overall_state'] = 'RED' if red_lights else 'GREEN'
+        intersections[intersection_id]['timestamp'] = datetime.now().isoformat()
+    
+    return {
+        'lights': states,
+        'intersections': dict(intersections)
+    }
 
 def save_telemetry(detector_id, channels, timestamp, counter):
     """Save telemetry data and process traffic states."""
@@ -72,12 +114,23 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                    (detector_id, channels, timestamp, counter))
     
     # Process and save traffic states
-    states = process_traffic_states(detector_id, channels)
-    for light_id, state in states.items():
+    processed = process_traffic_states(detector_id, channels)
+    
+    # Save individual light states
+    for light_id, state in processed['lights'].items():
+        current_state = 'RED' if state['red'] else 'GREEN'
         cursor.execute("""
-            INSERT INTO traffic_states (light_id, red_state, green_state, timestamp)
-            VALUES (?, ?, ?, ?)
-        """, (light_id, state['red'], state['green'], timestamp))
+            INSERT INTO traffic_light_states (light_id, state, timestamp)
+            VALUES (?, ?, ?)
+        """, (light_id, current_state, timestamp))
+    
+    # Update intersection states cache
+    for intersection_id, data in processed['intersections'].items():
+        intersection_states[intersection_id] = {
+            'overall_state': data['overall_state'],
+            'lights': data['lights'],
+            'timestamp': datetime.fromtimestamp(timestamp).isoformat()
+        }
     
     conn.commit()
     conn.close()
