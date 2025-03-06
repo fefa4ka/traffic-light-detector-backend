@@ -208,9 +208,10 @@ Each traffic light object:
    - [x] Deploy a Mosquitto MQTT broker to receive telemetry from traffic lights.
 
 2. **Telemetry Listener**  
-   - Implement a service that subscribes to MQTT topics and stores received messages in a database.
+   - [x] Implement a service that subscribes to MQTT topics and stores received messages in a database.
 
 3. **Traffic Light Aggregation**  
+   - [x] Develop a script that help to define group light signals into logical traffic lights. Script ask for traffic_light meta (name, location), ask detector id and interactive input for mapping channel (ask user what channel for RED, GREEN lights) 
    - Develop a script to process raw telemetry and group light signals into logical traffic lights.
 
 4. **Backend API**  
