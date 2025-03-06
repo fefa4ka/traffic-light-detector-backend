@@ -6,11 +6,7 @@ RUN apk add --no-cache \
     python3 \
     py3-pip \
     sqlite \
-    protobuf \
-    gcc \
-    musl-dev \
-    libffi-dev \
-    openssl-dev
+    protobuf 
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir \
