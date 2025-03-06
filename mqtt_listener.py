@@ -1,12 +1,13 @@
-import sqlite3
-import paho.mqtt.client as mqtt
 import base64
+import sqlite3
+
+import paho.mqtt.client as mqtt
 import telemetry_pb2  # Import generated protobuf module
 
 DB_PATH = "/data/detectors.db"
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
-MQTT_TOPIC = "traffic_lights/#"
+MQTT_TOPIC = "$me/device/state"
 
 def save_telemetry(detector_id, channels, timestamp, counter):
     """Save telemetry data into the database."""
@@ -42,7 +43,7 @@ def on_message(client, userdata, msg):
         print(f"Failed to process message: {e}")
 
 def main():
-    client = mqtt.Client()
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_message = on_message
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
     client.subscribe(MQTT_TOPIC)
