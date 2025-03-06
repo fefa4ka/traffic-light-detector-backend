@@ -14,9 +14,9 @@ sleep 5
 # Clear existing database and load fixtures
 docker exec tld_backend /bin/sh -c "rm -f /data/detectors.db && python3 /app/load_fixtures.py"
 
-# Run services in parallel
-docker exec -d tld_backend python3 /app/mqtt_listener.py
-docker exec tld_backend python3 /app/test_mqtt_publisher.py
+# Run services in parallel with output visible
+docker exec tld_backend python3 /app/mqtt_listener.py &
+docker exec tld_backend python3 /app/test_mqtt_publisher.py &
 
 # Keep script running until background processes finish
 wait
