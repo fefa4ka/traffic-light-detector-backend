@@ -73,6 +73,14 @@ CREATE TABLE traffic_light_channels (
     signal_color TEXT CHECK(signal_color IN ('RED', 'GREEN')) NOT NULL,
     FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
 );
+
+CREATE TABLE traffic_light_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    light_id INTEGER NOT NULL,
+    state TEXT CHECK(state IN ('RED', 'GREEN')) NOT NULL,
+    timestamp DATETIME NOT NULL,
+    FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
+);
 ```
 
 ### How it Works:
