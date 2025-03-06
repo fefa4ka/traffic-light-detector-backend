@@ -1,23 +1,22 @@
 #!/bin/zsh
 
-# Stop and remove any existing containers
-docker-compose down
+# Stop and remove any existing container
+docker stop tld_backend 2>/dev/null
+docker rm tld_backend 2>/dev/null
 
-# Rebuild and start new containers
-docker-compose up -d --build
+# Rebuild and start new container
+docker build -t traffic-light-backend .
+docker run -d --name tld_backend -p 1883:1883 -p 9001:9001 -v $(pwd)/data:/data traffic-light-backend
 
 # Wait for database to be ready
 sleep 5
 
-# Clear existing database
-rm -f /data/detectors.db
-
-# Load test fixtures
-python3 load_fixtures.py
+# Clear existing database and load fixtures
+docker exec tld_backend /bin/sh -c "rm -f /data/detectors.db && python3 /app/load_fixtures.py"
 
 # Run services in parallel
-python3 mqtt_listener.py &
-python3 test_mqtt_publisher.py &
+docker exec -d tld_backend python3 /app/mqtt_listener.py
+docker exec tld_backend python3 /app/test_mqtt_publisher.py
 
 # Keep script running until background processes finish
 wait
