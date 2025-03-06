@@ -22,6 +22,7 @@ RUN protoc --proto_path=/app --python_out=/app /app/telemetry.proto
 COPY mosquitto.conf /mosquitto/config/mosquitto.conf
 COPY register_detector.py /app/register_detector.py
 COPY list_detectors.py /app/list_detectors.py
+COPY test_mqtt_publisher.py /app/test_mqtt_publisher.py
 
 # Set the working directory
 WORKDIR /app
