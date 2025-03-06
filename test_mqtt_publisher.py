@@ -1,5 +1,6 @@
 import time
 import base64
+import random
 import sqlite3
 import paho.mqtt.client as mqtt
 import telemetry_pb2  # Import generated protobuf module
@@ -32,13 +33,17 @@ def get_or_create_user(detector_id):
     conn.close()
     return name, password
 
+counter = 0
+
 def generate_mock_data():
     """Generate mock telemetry data"""
+    global counter
     telemetry = telemetry_pb2.mqtt_msg_t()
     telemetry.id = DETECTOR_ID
-    telemetry.channels = 3  # Example bitmask (e.g., Red + Green active)
+    telemetry.channels = random.randint(1, 2**32 - 1)  # Random bitmask for 32 channels
     telemetry.timestamp = int(time.time())
-    telemetry.counter = 1
+    counter += 1
+    telemetry.counter = counter
 
     return base64.b64encode(telemetry.SerializeToString()).decode()
 
