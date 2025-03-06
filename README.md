@@ -31,6 +31,26 @@ For example:
 
 The same rules apply to other traffic lights. These mappings allow the system to infer the active state of a complete intersection.
 
+## Recognizing Channels for RED and GREEN Signals
+Each traffic light has two channels mapped to it: one for the RED signal and one for the GREEN signal. The mapping follows predefined bit masks stored in the database.
+
+### Channel Mapping in Database:
+- The `traffic_light_channels` table defines which bit masks correspond to RED or GREEN signals for each traffic light.
+- RED and GREEN channels are distinguished by their numerical bitmask values.
+
+### Example:
+| light_id | channel_mask | signal_color |
+|----------|-------------|--------------|
+| 1        | 1           | RED          |
+| 1        | 2           | GREEN        |
+| 2        | 4           | RED          |
+| 2        | 8           | GREEN        |
+
+### Identification Logic:
+1. The active channels from telemetry data are read.
+2. The system checks `traffic_light_channels` to match channels with signal colors.
+3. If `channel_mask` with `signal_color='RED'` is active, the light is RED; if `signal_color='GREEN'` is active, the light is GREEN.
+
 ## Database Implementation for Channel Mapping
 The backend uses an SQLite database to track traffic lights and their corresponding channels. This ensures efficient storage and retrieval of telemetry data.
 
