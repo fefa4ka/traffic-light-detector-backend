@@ -45,7 +45,7 @@ def generate_mock_data():
 USERNAME, PASSWORD = get_or_create_user(DETECTOR_ID)
 
 def main():
-    client = mqtt.Client()
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.username_pw_set(USERNAME, PASSWORD)
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
 
