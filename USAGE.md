@@ -4,7 +4,7 @@ To add a new traffic light detector, follow these steps:
 
 1. **Register the detector using Docker:**
    ```bash
-   docker exec mosquitto python3 register_detector.py detector_name
+   docker exec tld_backend python3 register_detector.py detector_name
    ```
 
    - Replace `detector_name` with the unique identifier for the new detector.
@@ -22,14 +22,14 @@ This process ensures that new detectors are securely registered with MQTT and st
 To build and start the Docker container:
 ```bash
 docker build -t traffic-light-backend .
-docker run -d --name mosquitto -p 1883:1883 -p 9001:9001 traffic-light-backend
+docker run -d --name tld_backend -p 1883:1883 -p 9001:9001 traffic-light-backend
 ```
 
 ## Update
 To update the container with new changes:
 ```bash
-docker stop mosquitto
-docker rm mosquitto
+docker stop tld_backend
+docker rm tld_backend
 docker build -t traffic-light-backend .
-docker run -d --name mosquitto -p 1883:1883 -p 9001:9001 traffic-light-backend
+docker run -d --name tld_backend -p 1883:1883 -p 9001:9001 traffic-light-backend
 ```
