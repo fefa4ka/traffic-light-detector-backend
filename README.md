@@ -31,6 +31,21 @@ For example:
 
 The same rules apply to other traffic lights. These mappings allow the system to infer the active state of a complete intersection.
 
+## Grouping Traffic Lights into an Intersection
+Each intersection consists of multiple traffic lights, which need to be grouped logically. The backend associates traffic lights based on predefined intersection identifiers.
+
+- Traffic lights sharing the same intersection ID are considered part of the same intersection.
+- The system aggregates all traffic lights at an intersection to derive a complete view of signal states.
+
+Example:
+- `intersection_001` contains:
+  - `tl_001_a`: Main road north-south direction
+  - `tl_001_b`: Main road east-west direction
+  - `tl_001_c`: Pedestrian crossing north-south
+  - `tl_001_d`: Pedestrian crossing east-west
+
+This allows for a structured representation of the traffic conditions at a given location.
+
 # Architecture and Implementation
 
 ## System Overview
