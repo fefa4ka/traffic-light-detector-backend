@@ -23,7 +23,7 @@ def generate_mock_data():
     telemetry = telemetry_pb2.mqtt_msg_t()
     telemetry.id = DETECTOR_ID
     channels = 0
-    for i in range(16):  # 16 traffic lights
+    for i in range(4):  # 16 traffic lights
         # For each traffic light, activate either the RED or GREEN light
         channels |= (1 << (i * 2 + random.randint(0, 1)))
     telemetry.channels = channels
