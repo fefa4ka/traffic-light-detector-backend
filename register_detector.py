@@ -13,8 +13,9 @@ def generate_password():
 
 def create_mqtt_user(name, password):
     """Create an MQTT user with the given credentials."""
-    # Ensure the password file and its directory exist
-    os.makedirs(os.path.dirname(MOSQUITTO_PASSWD_FILE), exist_ok=True)
+    # Ensure the password file directory exists before using it
+    password_dir = os.path.dirname(MOSQUITTO_PASSWD_FILE)
+    os.makedirs(password_dir, exist_ok=True)
     if not os.path.exists(MOSQUITTO_PASSWD_FILE):
         open(MOSQUITTO_PASSWD_FILE, 'a').close()
         os.chmod(MOSQUITTO_PASSWD_FILE, 0o600)  # Secure file permissions
