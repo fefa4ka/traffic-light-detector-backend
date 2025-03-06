@@ -152,10 +152,23 @@ Each traffic light object:
     - `longitude` (float)
 
 
-## Tasks to complete
-- [ ] Docker with Mosquitto
-- [ ] Script that listens to Mosquitto and stores telemetry in a database
-- [ ] Script that aggregates distinct channels of light for specific traffic lights
-- [ ] Backend that retrieves the latest traffic light status
-- [ ] Script that calculates the prediction of the next traffic light change
+## Implementation Plan
+
+1. **MQTT Broker Setup**  
+   - Deploy a Mosquitto MQTT broker to receive telemetry from traffic lights.
+
+2. **Telemetry Listener**  
+   - Implement a service that subscribes to MQTT topics and stores received messages in a database.
+
+3. **Traffic Light Aggregation**  
+   - Develop a script to process raw telemetry and group light signals into logical traffic lights.
+
+4. **Backend API**  
+   - Build a REST API to provide real-time traffic light statuses.
+
+5. **Prediction Module**  
+   - Implement an algorithm to estimate the next expected light change timing from stored data.
+
+6. **Deployment and Monitoring**  
+   - Containerize services, configure logging, and ensure system reliability.
 
