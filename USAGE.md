@@ -1,3 +1,11 @@
+# Traffic Light Detector Management System
+
+## Table of Contents
+1. [Creating a New Detector Account](#creating-a-new-traffic-light-detector-account)
+2. [Listing Registered Detectors](#listing-registered-traffic-light-detectors)
+3. [Verifying Detector Registration](#verifying-detector-registration)
+4. [Deploying and Updating the Docker Container](#deploying-and-updating-the-docker-container)
+
 # Creating a New Traffic Light Detector Account
 
 To add a new traffic light detector, follow these steps:
