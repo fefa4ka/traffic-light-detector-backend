@@ -25,7 +25,7 @@ def generate_mock_data():
     channels = 0
     for i in range(16):  # 16 traffic lights
         # For each traffic light, activate either the RED or GREEN light
-        channels |= (1 << (i * 2 + random.choice([0, 1])))
+        channels |= (1 << (i * 2 + random.randint(0, 1)))
     telemetry.channels = channels
     telemetry.timestamp = int(time.time())
     counter += 1
