@@ -58,18 +58,19 @@ The backend uses an SQLite database to track traffic lights and their correspond
 - `traffic_lights`: Stores traffic light metadata, including location and intersection association.
 - `traffic_light_channels`: Maps individual channel bitmasks to specific traffic lights.
 
-### Example Table Definitions:
+### Actual Table Definitions:
 ```sql
 CREATE TABLE traffic_lights (
     light_id INTEGER PRIMARY KEY AUTOINCREMENT,
     intersection_id TEXT NOT NULL,
-    description TEXT
+    description TEXT NOT NULL
 );
 
 CREATE TABLE traffic_light_channels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     light_id INTEGER NOT NULL,
     channel_mask INTEGER NOT NULL,
+    signal_color TEXT CHECK(signal_color IN ('RED', 'GREEN')) NOT NULL,
     FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
 );
 ```
