@@ -45,8 +45,67 @@ message mqtt_msg_t {
 }
 ```
 The `channels` field is a bit mask indicating active signals.
+
+## API
+Endpoint: `/status/{intersection_id}`
+`intersection_id` - identifier of the traffic light object that unites the signals to traffic light, and the traffic lights at the intersection 
+
+```json
+{
+  "intersection_id": "intersection_001",
+  "timestamp": "2023-10-01T12:00:00Z",
+  "traffic_lights": [
+    {
+      "light_id": "tl_001_a",
+      "current_status": "GREEN",
+      "time_to_next_change_seconds": 45,
+      "predicted_next_status": "RED",
+              "location": {
+    "latitude": 55.755826,
+    "longitude": 37.617300
+  },
+
+    },
+    {
+      "light_id": "tl_001_b",
+      "current_status": "RED",
+      "time_to_next_change_seconds": 30,
+      "predicted_next_status": "GREEN",
+              "location": {
+    "latitude": 55.755826,
+    "longitude": 37.617300
+  },
+
+    },
+    {
+      "light_id": "tl_001_c",
+      "current_status": "GREEN",
+      "time_to_next_change_seconds": 10,
+      "predicted_next_status": "RED",
+              "location": {
+    "latitude": 55.755826,
+    "longitude": 37.617300
+  },
+
+    },
+    {
+      "light_id": "tl_001_d",
+      "current_status": "RED",
+      "time_to_next_change_seconds": 15,
+      "predicted_next_status": "GREEN",
+              "location": {
+    "latitude": 55.755826,
+    "longitude": 37.617300
+  },
+
+    }
+  ]
+}
+```
+## TODO List
 - [ ] Docker with Mosquitto
 - [ ] Script that listens to Mosquitto and stores telemetry in a database
 - [ ] Script that aggregates distinct channels of light for specific traffic lights
 - [ ] Backend that retrieves the latest traffic light status
 - [ ] Script that calculates the prediction of the next traffic light change
+
