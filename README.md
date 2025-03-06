@@ -13,7 +13,9 @@ message mqtt_msg_t {
     int32 counter = 4;
 }
 ```
+
 `int32 channels` is a bit mask of the channels that are active.
+
 Each channel represents a signal from some light, for example:
 * Channel 1 - Red light of the traffic light A
 * Channel 2 - Green light of the traffic light A
@@ -68,10 +70,10 @@ Example Response:
       "current_status": "GREEN",
       "time_to_next_change_seconds": 45,
       "predicted_next_status": "RED",
-              "location": {
-    "latitude": 55.755826,
-    "longitude": 37.617300
-  },
+      "location": {
+        "latitude": 55.755826,
+        "longitude": 37.617300
+      },
 
     },
     {
@@ -79,10 +81,10 @@ Example Response:
       "current_status": "RED",
       "time_to_next_change_seconds": 30,
       "predicted_next_status": "GREEN",
-              "location": {
-    "latitude": 55.755826,
-    "longitude": 37.617300
-  },
+      "location": {
+        "latitude": 55.755826,
+        "longitude": 37.617300
+      },
 
     },
     {
@@ -90,10 +92,10 @@ Example Response:
       "current_status": "GREEN",
       "time_to_next_change_seconds": 10,
       "predicted_next_status": "RED",
-              "location": {
-    "latitude": 55.755826,
-    "longitude": 37.617300
-  },
+      "location": {
+        "latitude": 55.755826,
+        "longitude": 37.617300
+      },
 
     },
     {
@@ -101,14 +103,15 @@ Example Response:
       "current_status": "RED",
       "time_to_next_change_seconds": 15,
       "predicted_next_status": "GREEN",
-              "location": {
-    "latitude": 55.755826,
-    "longitude": 37.617300
-  },
+      "location": {
+        "latitude": 55.755826,
+        "longitude": 37.617300
+      },
 
     }
   ]
 }
+
 ```
 ### Response Fields:
 - `intersection_id` (string) - Identifier for the intersection.
@@ -123,6 +126,9 @@ Each traffic light object:
 - `location` (object) - GPS coordinates of the traffic light.
     - `latitude` (float)
     - `longitude` (float)
+
+
+## Tasks to complete
 - [ ] Docker with Mosquitto
 - [ ] Script that listens to Mosquitto and stores telemetry in a database
 - [ ] Script that aggregates distinct channels of light for specific traffic lights
