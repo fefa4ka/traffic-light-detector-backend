@@ -1,17 +1,20 @@
-# Creating a New Traffic Light Detector Account in Docker
+# Creating a New Traffic Light Detector Account
 
-To register a new traffic light detector without entering the running container, follow these steps:
+To add a new traffic light detector, follow these steps:
 
-1. **Run the registration script inside the container:**
+1. **Register the detector using Docker:**
    ```bash
    docker exec mosquitto python3 register_detector.py detector_name
    ```
 
-   Replace `detector_name` with the desired name for the new detector.
+   - Replace `detector_name` with the unique identifier for the new detector.
+   - The script will generate a password for the MQTT connection.
 
-2. **The script will output the generated password**, which will be required for MQTT authentication.
+2. **Retrieve and store the credentials:**
+   - The output of the command will display the generated password.
+   - Store this password securely as it will be required for MQTT authentication.
 
-This allows you to create detector accounts efficiently without needing to access the container shell manually.
+This process ensures that new detectors are securely registered with MQTT and stored in the database.
 
 # Deploying and Updating the Docker Container
 
