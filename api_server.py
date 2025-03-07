@@ -1,7 +1,8 @@
-from flask import Flask, jsonify
-from datetime import datetime
 import sqlite3
 from collections import defaultdict
+from datetime import datetime
+
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 DB_PATH = "/data/detectors.db"
@@ -54,4 +55,4 @@ def get_status(intersection_id):
     return jsonify(status)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=6000)
