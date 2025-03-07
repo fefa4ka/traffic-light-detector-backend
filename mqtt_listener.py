@@ -236,14 +236,14 @@ def predict_next_change(light_id, current_state):
                COUNT(*) as samples
         FROM (
             SELECT *, 
-                   EXP(-0.001 * (JULIANDAY('now') - JULIANDAY(last_updated))) as weight
+                   EXP(-0.001 * (strftime('%s','now') - last_updated)) as weight
             FROM state_durations
             WHERE light_id = ? AND previous_state = ?
             ORDER BY last_updated DESC
             LIMIT 100
         )
         GROUP BY previous_state, next_state
-        HAVING samples > 2
+        HAVING samples >= 3  # More clear minimum sample threshold
     ''', (light_id, current_state))
     
     history = cursor.fetchall()
