@@ -154,6 +154,33 @@ def save_telemetry(detector_id, channels, timestamp, counter):
             INSERT INTO traffic_light_states (light_id, state, timestamp)
             VALUES (?, ?, ?)
         """, (light_id, current_state, timestamp))
+
+        # Track state transition durations
+        prev_state = cursor.execute("""
+            SELECT state 
+            FROM traffic_light_states 
+            WHERE light_id = ? 
+            ORDER BY timestamp DESC 
+            LIMIT 1 OFFSET 1
+        """, (light_id,)).fetchone()
+
+        if prev_state and prev_state[0] != current_state:
+            prev_timestamp = cursor.execute("""
+                SELECT timestamp 
+                FROM traffic_light_states 
+                WHERE light_id = ? 
+                ORDER BY timestamp DESC 
+                LIMIT 1 OFFSET 1
+            """, (light_id,)).fetchone()[0]
+            
+            duration = timestamp - prev_timestamp
+            
+            cursor.execute("""
+                INSERT OR REPLACE INTO state_durations 
+                (light_id, previous_state, next_state, duration, last_updated)
+                VALUES (?, ?, ?, ?, ?)
+            """, (light_id, prev_state[0], current_state, duration, 
+                 datetime.now().isoformat()))
     
     # Update intersection states cache
     for intersection_id, data in processed['intersections'].items():
