@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 # Production deployment script for traffic light backend
 set -e
