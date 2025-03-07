@@ -193,6 +193,11 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                 VALUES (?, ?, ?, ?, ?)
             """, (light_id, prev_state[0], current_state, duration, 
                  datetime.now().isoformat()))
+            
+            print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
+            print(f"  Previous: {prev_state[0]}, Current: {current_state}")
+            print(f"  Duration: {duration:.2f}s")
+            print(f"  Recorded at: {datetime.now().isoformat()}")
     
     # Update intersection states cache
     for intersection_id, data in processed['intersections'].items():
