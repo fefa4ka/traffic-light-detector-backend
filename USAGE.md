@@ -16,7 +16,7 @@
 
 # Access services:
 # - MQTT Broker: localhost:1883
-# - API Server: http://localhost:5000
+# - API Server: http://localhost:6000
 # - MQTT Publisher: Active
 ```
 
@@ -24,7 +24,7 @@
 ```bash
 docker build -t traffic-light-backend .
 docker run -d --name tld_backend \
-  -p 1883:1883 -p 9001:9001 -p 5000:5000 \
+  -p 1883:1883 -p 9001:9001 -p 6000:6000 \
   -v $(pwd)/data:/data \
   traffic-light-backend
 ```
@@ -60,7 +60,7 @@ docker exec tld_backend python3 /app/list_intersections.py
 ### Get Real-Time Status
 ```bash
 # Get intersection status
-curl http://localhost:5000/status/Downtown_Crossing_202503071200
+curl http://localhost:6000/status/Downtown_Crossing_202503071200
 
 # Response includes:
 # - Current light states
