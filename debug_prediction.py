@@ -11,9 +11,22 @@ def debug_prediction_query():
     
     print("Prediction Query Debugger\n" + "="*30)
     
-    # Get input parameters
-    light_id = int(input("Enter light_id to test: "))
-    current_state = input("Enter current_state (RED/GREEN): ").strip().upper()
+    # Get and validate input parameters
+    while True:
+        try:
+            light_id = int(input("Enter light_id to test: "))
+            if light_id <= 0:
+                print("Light ID must be a positive integer")
+                continue
+            break
+        except ValueError:
+            print("Please enter a valid integer for light_id")
+
+    while True:
+        current_state = input("Enter current_state (RED/GREEN): ").strip().upper()
+        if current_state in ('RED', 'GREEN'):
+            break
+        print("State must be either RED or GREEN")
     
     print("\n[1] Checking state_durations table exists...")
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='state_durations'")
@@ -67,22 +80,31 @@ def debug_prediction_query():
             print(f"    Samples: {row['samples']}")
     
     print("\n[5] Raw data inspection:")
-    cursor.execute("""
-        SELECT previous_state, next_state, duration, last_updated
-        FROM state_durations 
-        WHERE light_id = ?
-        ORDER BY last_updated DESC
-        LIMIT 10
-    """, (light_id,))
+    try:
+        cursor.execute("""
+            SELECT previous_state, next_state, duration, last_updated
+            FROM state_durations 
+            WHERE light_id = ?
+            ORDER BY last_updated DESC
+            LIMIT 10
+        """, (light_id,))
+    except sqlite3.Error as e:
+        print(f"  Error querying raw data: {e}")
+        return
     raw_data = cursor.fetchall()
     
     if raw_data:
         print("Most recent 10 state_durations records:")
         for row in raw_data:
-            print(f"  {row['previous_state']}->{row['next_state']}: "
-                  f"{row['duration']:.2f}s at {row['last_updated']}")
+            try:
+                duration = float(row['duration'])
+                print(f"  {row['previous_state']}->{row['next_state']}: "
+                      f"{duration:.2f}s at {row['last_updated']}")
+            except (ValueError, TypeError) as e:
+                print(f"  Invalid duration data: {e}")
+                continue
     else:
-        print("No raw data found for this light_id")
+        print("  No raw data found for this light_id")
     
     conn.close()
 
