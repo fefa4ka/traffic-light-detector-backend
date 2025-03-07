@@ -200,7 +200,7 @@ def save_telemetry(detector_id, channels, timestamp, counter):
             duration = timestamp - prev_timestamp
             
             cursor.execute("""
-                INSERT INTO state_durations 
+                INSERT OR REPLACE INTO state_durations 
                 (light_id, previous_state, next_state, duration, last_updated)
                 VALUES (?, ?, ?, ?, ?)
             """, (light_id, prev_state[0], current_state, duration, 
