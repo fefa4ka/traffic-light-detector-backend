@@ -245,7 +245,7 @@ def predict_next_change(light_id, current_state):
             LIMIT 100
         )
         GROUP BY previous_state, next_state
-        HAVING samples >= 1  # Reduced minimum sample threshold for testing
+        HAVING samples >= 1  
     '''
     params = (light_id, current_state)
     
