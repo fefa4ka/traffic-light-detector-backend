@@ -1,73 +1,113 @@
-# Traffic Light Detector Management System
+# Traffic Light Monitoring System
 
 ## Table of Contents
-1. [Creating a New Detector Account](#creating-a-new-traffic-light-detector-account)
-2. [Listing Registered Detectors](#listing-registered-traffic-light-detectors)
-3. [Verifying Detector Registration](#verifying-detector-registration)
-4. [Deploying and Updating the Docker Container](#deploying-and-updating-the-docker-container)
+1. [System Setup](#system-setup)
+2. [Managing Traffic Lights](#managing-traffic-lights)
+3. [Monitoring & API](#monitoring--api)
+4. [Testing & Development](#testing--development)
+5. [Database Maintenance](#database-maintenance)
 
-# Creating a New Traffic Light Detector Account
+## System Setup
 
-To add a new traffic light detector, follow these steps:
-
-1. **Register the detector using Docker:**
-   ```bash
-   docker exec tld_backend python3 /app/register_detector.py detector_name
-   ```
-
-   - Replace `detector_name` with the unique identifier for the new detector.
-   - The script will generate a password for the MQTT connection.
-
-2. **Retrieve and store the credentials:**
-   - The output of the command will display the generated password.
-   - Store this password securely as it will be required for MQTT authentication.
-
-This process ensures that new detectors are securely registered with MQTT and stored in the database.
-
-# Listing Registered Traffic Light Detectors
-
-To list all registered traffic light detectors, run:
-
+### First Time Deployment
 ```bash
-docker exec tld_backend python3 /app/list_detectors.py
+# Build and start container with test data
+./run_dev_setup.sh
+
+# Access services:
+# - MQTT Broker: localhost:1883
+# - API Server: http://localhost:5000
+# - MQTT Publisher: Active
 ```
 
-This will output the detector names and their associated passwords.
-
-# Verifying Detector Registration
-
-## Check if the user was created in Mosquitto
-To verify that the MQTT user was created, inspect the password file inside the container:
-
-```bash
-docker exec tld_backend cat /mosquitto/config/passwords
-```
-
-If the detector appears in the file, it was successfully registered.
-
-## Test Connection to the MQTT Broker
-To check that the new detector can connect to the broker, use the following command:
-
-```bash
-mosquitto_sub -h localhost -p 1883 -u detector_name -P detector_password -t "#"
-```
-
-Replace `detector_name` and `detector_password` with the credentials generated during registration. If the connection succeeds, the detector is properly configured.
-
-# Deploying and Updating the Docker Container
-
-## Deploy
-To build and start the Docker container:
+### Production Deployment
 ```bash
 docker build -t traffic-light-backend .
-docker run -d --name tld_backend -p 1883:1883 -p 9001:9001 traffic-light-backend
+docker run -d --name tld_backend \
+  -p 1883:1883 -p 9001:9001 -p 5000:5000 \
+  -v $(pwd)/data:/data \
+  traffic-light-backend
 ```
 
-## Update
-To update the container with new changes:
+## Managing Traffic Lights
+
+### Create New Traffic Light
 ```bash
-docker stop tld_backend
-docker rm tld_backend
-docker build -t traffic-light-backend .
-docker run -d --name tld_backend -p 1883:1883 -p 9001:9001 -v $(pwd)/data:/data traffic-light-backend
+docker exec -it tld_backend python3 /app/group_traffic_lights.py
+```
+Follow interactive prompts to:
+1. Name the light
+2. Set location coordinates (format: "lat, lng")
+3. Assign detector ID
+4. Configure RED/GREEN channels (0-31)
+
+### Group Lights into Intersections
+```bash
+docker exec -it tld_backend python3 /app/manage_intersections.py
+```
+Steps:
+1. View existing lights
+2. Enter intersection name/location
+3. Select light IDs to include
+
+## Monitoring & API
+
+### View All Intersections
+```bash
+docker exec tld_backend python3 /app/list_intersections.py
+```
+
+### Get Real-Time Status
+```bash
+# Get intersection status
+curl http://localhost:5000/status/Downtown_Crossing_202503071200
+
+# Response includes:
+# - Current light states
+# - Location coordinates
+# - Last update timestamp
+```
+
+### View Raw Telemetry
+```bash
+docker exec tld_backend python3 /app/display_traffic_lights.py
+```
+
+## Testing & Development
+
+### Load Test Data
+```bash
+# Load 4-light intersection with detector 1
+docker exec tld_backend python3 /app/load_fixtures.py
+
+# Generate test traffic patterns
+docker exec tld_backend python3 /app/test_mqtt_publisher.py
+```
+
+### View Debug Outputs
+```bash
+# See raw MQTT messages
+docker logs tld_backend -f
+
+# View API server logs
+docker exec tld_backend tail -f /var/log/mosquitto/mosquitto.log
+```
+
+## Database Maintenance
+
+### Backup Database
+```bash
+docker exec tld_backend sqlite3 /data/detectors.db .dump > backup.sql
+```
+
+### Restore Database
+```bash
+cat backup.sql | docker exec -i tld_backend sqlite3 /data/detectors.db
+```
+
+### Reset System
+```bash
+# Wipe all data and restart
+rm -rf data/*
+./run_dev_setup.sh
 ```
