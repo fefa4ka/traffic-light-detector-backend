@@ -224,6 +224,8 @@ def save_telemetry(detector_id, channels, timestamp, counter):
 
 def predict_next_change(light_id, current_state):
     """Enhanced prediction with time-weighted averages"""
+    print(f"\n[PREDICT] Starting prediction for light {light_id} ({current_state})")
+    
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -245,6 +247,7 @@ def predict_next_change(light_id, current_state):
     ''', (light_id, current_state))
     
     history = cursor.fetchall()
+    print(f"[PREDICT] Raw SQL results: {history}")
     
     # Get current state duration
     cursor.execute('''
@@ -263,6 +266,13 @@ def predict_next_change(light_id, current_state):
         avg_duration = max(min(best['weighted_avg'], 300), 30)  # Safety limits
         time_remaining = avg_duration - current_state_duration
         confidence = min(best['samples'] / 10, 1.0)
+        
+        print(f"[PREDICT] Using historical data:")
+        print(f"  Best transition: {best['previous_state']}->{best['next_state']}")
+        print(f"  Samples: {best['samples']}, Weighted avg: {best['weighted_avg']:.2f}s")
+        print(f"  Current duration: {current_state_duration:.2f}s")
+        print(f"  Time remaining: {time_remaining:.2f}s, Confidence: {confidence:.2f}")
+        
         return (best['next_state'], max(0, time_remaining), confidence)
     
     # Fallback to time-aware defaults
@@ -271,6 +281,11 @@ def predict_next_change(light_id, current_state):
         default_duration = 40 if current_state == 'GREEN' else 90
     else:
         default_duration = 60 if current_state == 'GREEN' else 120
+    
+    print(f"[PREDICT] Using fallback defaults:")
+    print(f"  Current hour: {hour}, Rush hours: {7 <= hour < 10 or 16 <= hour < 19}")
+    print(f"  Default duration: {default_duration}s for {current_state}")
+    print(f"  Current state duration: {current_state_duration:.2f}s")
         
     return ('RED' if current_state == 'GREEN' else 'GREEN', 
            max(default_duration - current_state_duration, 0),
