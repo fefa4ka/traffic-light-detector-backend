@@ -7,6 +7,34 @@ def load_prod_fixtures():
     """Load production fixtures for Office intersection with detector 1761"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
+    # Create required tables
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS traffic_lights (
+            light_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            location TEXT NOT NULL,
+            intersection_id TEXT NOT NULL DEFAULT 'UNGROUPED'
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS traffic_light_channels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            light_id INTEGER NOT NULL,
+            detector_id INTEGER NOT NULL,
+            channel_mask INTEGER NOT NULL,
+            signal_color TEXT CHECK(signal_color IN ('RED', 'GREEN')) NOT NULL,
+            FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS detectors (
+            name TEXT PRIMARY KEY,
+            password TEXT NOT NULL
+        )
+    """)        
     
     try:
         # Create Office intersection light

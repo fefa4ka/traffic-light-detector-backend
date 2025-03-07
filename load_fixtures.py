@@ -37,7 +37,7 @@ def load_fixtures():
     """)
     
     # Create intersection
-    intersection_id = f"Downtown_Crossing_{datetime.now().strftime('%Y%m%d%H%M')}"
+    intersection_id = "Moscow_Crossing"
     
     # Traffic light configurations
     lights = [

@@ -29,8 +29,7 @@ def display_traffic_lights():
             print(f"  Name: {name}")
             print(f"  Location: {location}")
             current_id = light_id
-        print(f"  Detector ID: {detector_id}")
-        print(f"  {signal_color} Signal - Channel: {channel_mask}")
+        print(f"  {signal_color} Signal - Channel: {detector_id}.{channel_mask}")
 
 if __name__ == "__main__":
     display_traffic_lights()
