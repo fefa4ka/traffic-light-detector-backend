@@ -231,7 +231,8 @@ def predict_next_change(light_id, current_state):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    cursor.execute('''
+    # Debugging the SQL query execution
+    sql_query = '''
         SELECT previous_state, next_state, 
                SUM(duration * weight)/SUM(weight) as weighted_avg,
                COUNT(*) as samples
@@ -245,10 +246,28 @@ def predict_next_change(light_id, current_state):
         )
         GROUP BY previous_state, next_state
         HAVING samples >= 3  
-    ''', (light_id, current_state))
+    '''
+    params = (light_id, current_state)
     
+    print(f"[PREDICT] Executing SQL query:\n{sql_query}")
+    print(f"[PREDICT] With parameters: light_id={light_id}, current_state={current_state}")
+    
+    cursor.execute(sql_query, params)
+    
+    # Verify if we got any results
     history = cursor.fetchall()
-    print(f"[PREDICT] Raw SQL results: {history}")
+    if not history:
+        print("[PREDICT] No results from SQL query. Possible reasons:")
+        print("- No matching state transitions in state_durations table")
+        print("- Not enough samples (need at least 3 transitions)")
+        print("- Check if state_durations table has data for this light")
+        
+        # Verify table existence
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='state_durations'")
+        if not cursor.fetchone():
+            print("[PREDICT] CRITICAL ERROR: state_durations table does not exist!")
+        else:
+            print("[PREDICT] state_durations table exists but contains no matching records")
     
     # Get current state duration
     cursor.execute('''
