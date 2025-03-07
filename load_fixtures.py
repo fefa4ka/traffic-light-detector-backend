@@ -42,26 +42,26 @@ def load_fixtures():
     # Traffic light configurations
     lights = [
         {
-            'name': 'Main St Northbound',
-            'location': 'Main St & 1st Ave',
+            'name': 'Red Square Northbound',
+            'location': '55.753930, 37.620795',  # Red Square coordinates
             'red_channel': 0,
             'green_channel': 1
         },
         {
-            'name': 'Main St Southbound', 
-            'location': 'Main St & 1st Ave',
+            'name': 'Tverskaya Southbound', 
+            'location': '55.764937, 37.605676',  # Tverskaya Street coordinates
             'red_channel': 2,
             'green_channel': 3
         },
         {
-            'name': 'Oak St Eastbound',
-            'location': 'Oak St & 1st Ave',
+            'name': 'Kremlin Eastbound',
+            'location': '55.751999, 37.617734',  # Kremlin coordinates
             'red_channel': 4,
             'green_channel': 5
         },
         {
-            'name': 'Oak St Westbound',
-            'location': 'Oak St & 1st Ave',
+            'name': 'Arbat Westbound',
+            'location': '55.750446, 37.591615',  # Arbat Street coordinates
             'red_channel': 6, 
             'green_channel': 7
         }
