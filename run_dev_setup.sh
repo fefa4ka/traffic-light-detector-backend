@@ -19,7 +19,7 @@ echo "Waiting for detector registration..."
 docker exec tld_backend python3 /app/register_detector.py detector
 echo -e "\nStarting MQTT services..."
 echo "==========================="
-docker exec -it tld_backend python3 /app/test_mqtt_publisher.py &
+docker exec -d tld_backend python3 /app/test_mqtt_publisher.py
 docker exec -it tld_backend python3 /app/mqtt_listener.py
 
 # Keep script running until background processes finish
