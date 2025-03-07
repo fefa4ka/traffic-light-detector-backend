@@ -15,8 +15,12 @@ sleep 5
 docker exec tld_backend /bin/sh -c "rm -f /data/detectors.db && python3 /app/load_fixtures.py"
 
 # Run services in parallel with output visible
-docker exec tld_backend python3 /app/mqtt_listener.py &
-docker exec tld_backend python3 /app/test_mqtt_publisher.py &
+echo "Waiting for detector registration..."
+docker exec tld_backend python3 /app/register_detector.py detector
+echo "Running MQTT publisher..."
+docker exec -d tld_backend python3 /app/test_mqtt_publisher.py
+echo "Waiting for MQTT listener..."
+docker exec tld_backend python3 /app/mqtt_listener.py 
 
 # Keep script running until background processes finish
 wait
