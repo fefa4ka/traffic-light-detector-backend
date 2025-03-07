@@ -39,7 +39,7 @@ COPY *.py /app/
 # Set the working directory
 WORKDIR /app
 
-# Expose default Mosquitto ports
+# Expose default Mosquitto ports and API port
 EXPOSE 1883 9001 5000
 
 # Ensure required directories and files exist before starting Mosquitto
