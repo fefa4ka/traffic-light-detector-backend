@@ -254,18 +254,17 @@ def predict_next_change(light_id, current_state):
         next_state = last_transition['next_state']
         
         # Get current state duration
+        # Get actual state start time from durations table
         cursor.execute('''
-            SELECT timestamp 
-            FROM traffic_light_states 
-            WHERE light_id = ? 
-            ORDER BY timestamp DESC 
-            LIMIT 1
-        ''', (light_id,))
+            SELECT MAX(last_updated) 
+            FROM state_durations
+            WHERE light_id = ? AND next_state = ?
+        ''', (light_id, current_state))
         result = cursor.fetchone()
-        current_state_start = result['timestamp'] if result else time.time()
+        current_state_start = time.mktime(datetime.fromisoformat(result[0]).timetuple()) if result[0] else time.time()
         current_state_duration = time.time() - current_state_start
         
-        time_remaining = predicted_duration - current_state_duration
+        time_remaining = max(0, predicted_duration - current_state_duration)
         confidence = 1.0  # Always confident in last transition
         
         print("\n[PREDICT] Using same type transition:")
