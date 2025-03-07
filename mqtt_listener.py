@@ -180,18 +180,21 @@ def save_telemetry(detector_id, channels, timestamp, counter):
         if prev_state and prev_state[0] != current_state:
             # Get first timestamp of previous state sequence
             prev_timestamp = cursor.execute("""
-                SELECT MIN(timestamp)
-                FROM (
-                    SELECT timestamp
-                    FROM traffic_light_states
-                    WHERE light_id = ?
-                    AND state = ?
+                SELECT MIN(timestamp) 
+                FROM traffic_light_states
+                WHERE light_id = ? 
+                AND state = ? 
+                AND timestamp < ?
+                AND timestamp > (
+                    SELECT COALESCE(MAX(timestamp), 0) 
+                    FROM traffic_light_states 
+                    WHERE light_id = ? 
+                    AND state != ?
                     AND timestamp < ?
-                    ORDER BY timestamp DESC
-                    LIMIT 1
                 )
-            """, (light_id, prev_state[0], timestamp)).fetchone()[0]
+            """, (light_id, prev_state[0], timestamp, light_id, prev_state[0], timestamp)).fetchone()[0]
             
+            # Calculate duration from actual state change
             duration = timestamp - prev_timestamp
             
             cursor.execute("""
