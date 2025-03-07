@@ -17,8 +17,6 @@ docker exec tld_backend /bin/sh -c "rm -f /data/detectors.db && python3 /app/loa
 # Run services in parallel with output visible
 echo "Waiting for detector registration..."
 docker exec tld_backend python3 /app/register_detector.py detector
-# Install required packages
-docker exec tld_backend pip install flask
 
 echo -e "\nStarting services..."
 echo "======================="
@@ -27,7 +25,7 @@ docker exec -d tld_backend python3 /app/mqtt_listener.py
 echo "Starting MQTT publisher..."
 docker exec -d tld_backend python3 /app/test_mqtt_publisher.py
 echo "Starting API server..."
-docker exec -d tld_backend python3 /app/api_server.py
+docker exec -it tld_backend python3 /app/api_server.py
 
 echo -e "\nServices running:"
 echo "  - MQTT Broker: localhost:1883"
