@@ -244,52 +244,76 @@ CREATE TABLE state_durations (
 );
 ```
 
-#### Algorithm Steps:
-1. For each state transition (RED→GREEN, GREEN→RED):
-   - Calculate average duration from historical transitions
-   - Store weighted average giving more importance to recent transitions
-   - Maintain minimum duration safety limits (e.g. 30s minimum for any phase)
+#### Algorithm Improvements:
+1. Time-weighted averages:
+   - Use exponential moving average (EMA) with α=0.2 for recent bias
+   - Different weights for time-of-day patterns (morning/evening rush hours)
+   - Minimum duration constraints (30-300s valid range)
 
-2. Real-time Prediction:
+2. Enhanced real-time prediction:
 ```python
 def predict_next_change(light_id, current_state):
     """
-    Returns: (predicted_next_state, seconds_remaining)
+    Returns: (predicted_next_state, seconds_remaining, confidence)
     """
-    # Get average duration for this state transition
+    # Get time-aware weighted averages
     history = query_db('''
-        SELECT previous_state, next_state, average_duration 
-        FROM state_durations
-        WHERE light_id = ? AND previous_state = ?
-        ORDER BY last_updated DESC
-        LIMIT 1
+        SELECT previous_state, next_state, 
+               SUM(duration * weight) / SUM(weight) as weighted_avg,
+               COUNT(*) as samples
+        FROM (
+            SELECT *, 
+                   EXP(-0.001 * (JULIANDAY('now') - JULIANDAY(last_updated))) as weight
+            FROM state_durations
+            WHERE light_id = ? AND previous_state = ?
+            ORDER BY last_updated DESC
+            LIMIT 100
+        )
+        GROUP BY previous_state, next_state
+        HAVING samples > 2  # Require minimum 3 samples
     ''', (light_id, current_state))
     
+    # Calculate time in application layer for better precision
+    current_state_start = query_db('''
+        SELECT timestamp 
+        FROM traffic_light_states
+        WHERE light_id = ?
+        ORDER BY timestamp DESC 
+        LIMIT 1
+    ''', (light_id,))[0][0]
+    current_state_duration = time.time() - current_state_start
+
     if history:
-        avg_duration = history[0]['average_duration']
-        # Get time since current state began
-        current_state_duration = query_db('''
-            SELECT strftime('%s','now') - strftime('%s',timestamp) 
-            FROM traffic_light_states
-            WHERE light_id = ?
-            ORDER BY timestamp DESC 
-            LIMIT 1
-        ''', (light_id,))[0][0]
-        
+        best = max(history, key=lambda x: x['samples'])
+        avg_duration = max(min(best['weighted_avg'], 300), 30)  # Enforce safety limits
         time_remaining = avg_duration - current_state_duration
-        return (history[0]['next_state'], max(0, time_remaining))
+        confidence = min(best['samples']/10, 1.0)  # 0-1 confidence based on sample size
+        return (best['next_state'], max(0, time_remaining), confidence)
     
-    # Fallback to default values if no history
-    default_duration = 60 if current_state == 'GREEN' else 120
-    next_state = 'RED' if current_state == 'GREEN' else 'GREEN'
-    return (next_state, default_duration)
+    # Time-aware fallback defaults
+    hour = datetime.now().hour
+    if 7 <= hour < 10 or 16 <= hour < 19:  # Rush hours
+        default_duration = 40 if current_state == 'GREEN' else 90
+    else:
+        default_duration = 60 if current_state == 'GREEN' else 120
+        
+    return ('RED' if current_state == 'GREEN' else 'GREEN', 
+           max(default_duration - current_state_duration, 0),
+           0.5)  # Default confidence
 ```
 
 3. Maintenance Process:
-- Daily recalculation of averages
-- Remove outliers (99th percentile)
-- Update state_durations table with new averages
-- Automatic adjustment for daily patterns (morning/evening rush hours)
+- Continuous learning:
+  - Update averages after each state transition
+  - Remove outliers using Tukey's Fences (1.5*IQR)
+  - Automatic time-of-day pattern detection
+  - Emergency vehicle priority mode detection
+- Data pruning:
+  - Keep 1 year history
+  - Compress old records to hourly averages
+- Integrity checks:
+  - Validate state machine transitions
+  - Detect stuck lights (duration > 2x average)
 
 #### Example Calculation:
 1. Historical transitions for light 1:
