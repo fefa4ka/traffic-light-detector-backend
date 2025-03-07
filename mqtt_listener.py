@@ -281,15 +281,24 @@ def predict_next_change(light_id, current_state):
     current_state_start = result['timestamp'] if result else time.time()
     current_state_duration = time.time() - current_state_start
     
+    # Calculate time-aware defaults first
+    hour = datetime.now().hour
+    if 7 <= hour < 10 or 16 <= hour < 19:  # Rush hours
+        default_duration = 40 if current_state == 'GREEN' else 90
+    else:
+        default_duration = 60 if current_state == 'GREEN' else 120
+
     if history:
         best = max(history, key=lambda x: x['samples'])
-        avg_duration = max(min(best['weighted_avg'], 300), 30)  # Safety limits
+        # Handle potential None value from SQL and provide fallback
+        weighted_avg = best['weighted_avg'] or default_duration
+        avg_duration = max(min(weighted_avg, 300), 30)  # Safety limits
         time_remaining = avg_duration - current_state_duration
         confidence = min(best['samples'] / 10, 1.0)
         
         print(f"[PREDICT] Using historical data:")
         print(f"  Best transition: {best['previous_state']}->{best['next_state']}")
-        print(f"  Samples: {best['samples']}, Weighted avg: {best['weighted_avg']:.2f}s")
+        print(f"  Samples: {best['samples']}, Weighted avg: {weighted_avg:.2f}s")
         print(f"  Current duration: {current_state_duration:.2f}s")
         print(f"  Time remaining: {time_remaining:.2f}s, Confidence: {confidence:.2f}")
         
