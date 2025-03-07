@@ -39,7 +39,7 @@ def get_channel_mappings():
 
 # Track light states and their timing
 light_states = defaultdict(lambda: {'state': 'RED', 'last_change': time.time()})
-STATE_DURATION = 30  # Seconds between state changes
+STATE_DURATION = 10  # Seconds between state changes
 
 def generate_mock_data():
     """Generate telemetry data following fixture-defined patterns"""
