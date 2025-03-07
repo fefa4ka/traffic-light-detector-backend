@@ -36,6 +36,37 @@ The script will:
 3. Deploy new container with proper ports and data volume
 4. Preserve existing data between deployments through the ./data directory
 
+## Nginx Reverse Proxy Setup
+For production deployments, we recommend using Nginx as a reverse proxy:
+
+```bash
+# Install Nginx
+sudo apt install nginx
+```
+
+Create a new config file `/etc/nginx/sites-available/traffic-lights`:
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:6000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Enable the configuration:
+```bash
+sudo ln -s /etc/nginx/sites-available/traffic-lights /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
 ## Managing Traffic Lights
 
 ### Create New Traffic Light
