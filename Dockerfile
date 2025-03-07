@@ -40,7 +40,7 @@ COPY *.py /app/
 WORKDIR /app
 
 # Expose default Mosquitto ports and API port
-EXPOSE 1883 9001 5000
+EXPOSE 1883 9001 6000
 
 # Ensure required directories and files exist before starting Mosquitto
 CMD mkdir -p /data && touch /data/passwords /data/detectors.db && chmod 600 /data/passwords && \
