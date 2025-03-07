@@ -172,18 +172,25 @@ def save_telemetry(detector_id, channels, timestamp, counter):
             SELECT state 
             FROM traffic_light_states 
             WHERE light_id = ? 
+            AND timestamp < ?
             ORDER BY timestamp DESC 
-            LIMIT 1 OFFSET 1
-        """, (light_id,)).fetchone()
+            LIMIT 1
+        """, (light_id, timestamp)).fetchone()
 
         if prev_state and prev_state[0] != current_state:
+            # Get first timestamp of previous state sequence
             prev_timestamp = cursor.execute("""
-                SELECT timestamp 
-                FROM traffic_light_states 
-                WHERE light_id = ? 
-                ORDER BY timestamp DESC 
-                LIMIT 1 OFFSET 1
-            """, (light_id,)).fetchone()[0]
+                SELECT MIN(timestamp)
+                FROM (
+                    SELECT timestamp
+                    FROM traffic_light_states
+                    WHERE light_id = ?
+                    AND state = ?
+                    AND timestamp < ?
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                )
+            """, (light_id, prev_state[0], timestamp)).fetchone()[0]
             
             duration = timestamp - prev_timestamp
             
@@ -195,7 +202,8 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                  datetime.now().isoformat()))
             
             print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
-            print(f"  Previous: {prev_state[0]}, Current: {current_state}")
+            print(f"  Previous: {prev_state[0]} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
+            print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
             print(f"  Duration: {duration:.2f}s")
             print(f"  Recorded at: {datetime.now().isoformat()}")
     
