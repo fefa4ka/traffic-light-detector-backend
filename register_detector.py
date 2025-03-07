@@ -26,7 +26,7 @@ def create_mqtt_user(name, password):
     subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     # Restart Mosquitto to apply the new user credentials
-    subprocess.run(["pkill", "-HUP", "mosquitto"], check=True)
+    subprocess.run(["pkill", "-SIGHUP", "mosquitto"], check=True)
 
 def save_to_db(name, password):
     """Save detector information to the SQLite database."""
