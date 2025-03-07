@@ -2,6 +2,7 @@ import base64
 import random
 import sqlite3
 import time
+from collections import defaultdict
 
 import paho.mqtt.client as mqtt
 import telemetry_pb2  # Import generated protobuf module
