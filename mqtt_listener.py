@@ -224,101 +224,63 @@ def save_telemetry(detector_id, channels, timestamp, counter):
     conn.close()
 
 def predict_next_change(light_id, current_state):
-    """Enhanced prediction with time-weighted averages"""
+    """Simple prediction using last transition duration"""
     print(f"\n[PREDICT] Starting prediction for light {light_id} ({current_state})")
     
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Debugging the SQL query execution
-    sql_query = '''
-        SELECT previous_state, next_state, 
-               SUM(duration * weight)/SUM(weight) as weighted_avg,
-               COUNT(*) as samples
-        FROM (
-            SELECT *, 
-                   EXP(-0.001 * (strftime('%s','now') - last_updated)) as weight
-            FROM state_durations
-            WHERE light_id = ? AND previous_state = ?
-            ORDER BY last_updated DESC
-            LIMIT 100
-        )
-        GROUP BY previous_state, next_state
-        HAVING samples >= 1  
-    '''
-    params = (light_id, current_state)
-    
-    print(f"[PREDICT] Executing SQL query:\n{sql_query}")
-    print(f"[PREDICT] With parameters: light_id={light_id}, current_state={current_state}")
-    
-    cursor.execute(sql_query, params)
-    
-    # Verify if we got any results
-    history = cursor.fetchall()
-    if not history:
-        print("[PREDICT] No results from SQL query. Possible reasons:")
-        print("- No matching state transitions in state_durations table")
-        print("- Not enough samples (need at least 3 transitions)")
-        print("- Check if state_durations table has data for this light")
-        
-        # Verify table existence
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='state_durations'")
-        if not cursor.fetchone():
-            print("[PREDICT] CRITICAL ERROR: state_durations table does not exist!")
-        else:
-            print("[PREDICT] state_durations table exists but contains no matching records")
-    
-    # Get current state duration
-    cursor.execute('''
-        SELECT timestamp 
-        FROM traffic_light_states 
-        WHERE light_id = ? 
-        ORDER BY timestamp DESC 
+    # Get last transition
+    cursor.execute("""
+        SELECT previous_state, next_state, duration, last_updated
+        FROM state_durations
+        WHERE light_id = ?
+        ORDER BY last_updated DESC
         LIMIT 1
-    ''', (light_id,))
-    result = cursor.fetchone()
-    current_state_start = result['timestamp'] if result else time.time()
-    current_state_duration = time.time() - current_state_start
+    """, (light_id,))
     
-    # Calculate time-aware defaults first
-    hour = datetime.now().hour
-    if 7 <= hour < 10 or 16 <= hour < 19:  # Rush hours
-        default_duration = 40 if current_state == 'GREEN' else 90
-    else:
-        default_duration = 60 if current_state == 'GREEN' else 120
-
-    if history:
-        best = max(history, key=lambda x: x['samples'])
-        # Handle potential None value from SQL and provide fallback
-        weighted_avg = best['weighted_avg'] or default_duration
-        avg_duration = max(min(weighted_avg, 300), 30)  # Safety limits
-        time_remaining = avg_duration - current_state_duration
-        confidence = min(best['samples'] / 10, 1.0)
+    last_transition = cursor.fetchone()
+    
+    if last_transition:
+        print("  Last transition:")
+        print(f"    From: {last_transition['previous_state']}")
+        print(f"    To: {last_transition['next_state']}")
+        print(f"    Duration: {last_transition['duration']:.2f}s")
+        print(f"    At: {last_transition['last_updated']}")
         
-        print(f"[PREDICT] Using historical data:")
-        print(f"  Best transition: {best['previous_state']}->{best['next_state']}")
-        print(f"  Samples: {best['samples']}, Weighted avg: {weighted_avg:.2f}s")
+        # Simple prediction: use last duration
+        predicted_duration = float(last_transition['duration'])
+        next_state = 'GREEN' if current_state == 'RED' else 'RED'
+        
+        # Get current state duration
+        cursor.execute('''
+            SELECT timestamp 
+            FROM traffic_light_states 
+            WHERE light_id = ? 
+            ORDER BY timestamp DESC 
+            LIMIT 1
+        ''', (light_id,))
+        result = cursor.fetchone()
+        current_state_start = result['timestamp'] if result else time.time()
+        current_state_duration = time.time() - current_state_start
+        
+        time_remaining = predicted_duration - current_state_duration
+        confidence = 1.0  # Always confident in last transition
+        
+        print("\n[PREDICT] Using last transition:")
+        print(f"  Next state: {next_state}")
+        print(f"  Expected duration: {predicted_duration:.2f}s")
         print(f"  Current duration: {current_state_duration:.2f}s")
         print(f"  Time remaining: {time_remaining:.2f}s, Confidence: {confidence:.2f}")
         
-        return (best['next_state'], max(0, time_remaining), confidence)
+        return (next_state, max(0, time_remaining), confidence)
     
-    # Fallback to time-aware defaults
-    hour = datetime.now().hour
-    if 7 <= hour < 10 or 16 <= hour < 19:  # Rush hours
-        default_duration = 40 if current_state == 'GREEN' else 90
-    else:
-        default_duration = 60 if current_state == 'GREEN' else 120
-    
-    print(f"[PREDICT] Using fallback defaults:")
-    print(f"  Current hour: {hour}, Rush hours: {7 <= hour < 10 or 16 <= hour < 19}")
-    print(f"  Default duration: {default_duration}s for {current_state}")
-    print(f"  Current state duration: {current_state_duration:.2f}s")
-        
-    return ('RED' if current_state == 'GREEN' else 'GREEN', 
-           max(default_duration - current_state_duration, 0),
-           0.5)
+    # Fallback to defaults if no transitions found
+    print("[PREDICT] No transitions found, using defaults")
+    next_state = 'GREEN' if current_state == 'RED' else 'RED'
+    default_duration = 60 if current_state == 'GREEN' else 120
+    return (next_state, default_duration, 0.5)
 
 def on_message(client, userdata, msg):
     """Handle incoming MQTT messages and process traffic states."""
