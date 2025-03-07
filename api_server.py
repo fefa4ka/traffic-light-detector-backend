@@ -19,11 +19,11 @@ def get_intersection_status(intersection_id):
         SELECT tl.light_id, tl.name, tl.location, tls.state, tls.timestamp 
         FROM traffic_lights tl
         JOIN (
-            SELECT light_id, MAX(timestamp) as max_ts
+            SELECT light_id, MAX(rowid) as max_rowid
             FROM traffic_light_states
             GROUP BY light_id
         ) latest ON tl.light_id = latest.light_id
-        JOIN traffic_light_states tls ON tl.light_id = tls.light_id AND tls.timestamp = latest.max_ts
+        JOIN traffic_light_states tls ON tls.rowid = latest.max_rowid
         WHERE tl.intersection_id = ?
     """, (intersection_id,))
     
