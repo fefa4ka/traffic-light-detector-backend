@@ -22,12 +22,19 @@
 
 ### Production Deployment
 ```bash
-docker build -t traffic-light-backend .
-docker run -d --name tld_backend \
-  -p 1883:1883 -p 9001:9001 -p 6000:6000 \
-  -v $(pwd)/data:/data \
-  traffic-light-backend
+# First deployment
+chmod +x run_prod.sh
+./run_prod.sh
+
+# Subsequent updates
+./run_prod.sh  # Re-runs with clean deployment
 ```
+
+The script will:
+1. Build fresh Docker image
+2. Stop/remove any existing container
+3. Deploy new container with proper ports and data volume
+4. Preserve existing data between deployments through the ./data directory
 
 ## Managing Traffic Lights
 
