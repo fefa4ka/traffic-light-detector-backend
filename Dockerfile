@@ -46,6 +46,7 @@ EXPOSE 1883 6000
 COPY start_services.sh /app/start_services.sh
 
 # Ensure required directories and files exist before starting services
-CMD mkdir -p /data && touch /data/passwords /data/detectors.db && chmod 600 /data/passwords && \
+CMD mkdir -p /data && touch /data/passwords /data/detectors.db && \
+    chown mosquitto:mosquitto /data/passwords && chmod 640 /data/passwords && \
     /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf & \
     sh /app/start_services.sh
