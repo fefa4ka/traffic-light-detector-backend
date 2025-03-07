@@ -86,7 +86,6 @@ def debug_prediction_query():
             FROM state_durations 
             WHERE light_id = ?
             ORDER BY last_updated DESC
-            LIMIT 10
         """, (light_id,))
     except sqlite3.Error as e:
         print(f"  Error querying raw data: {e}")
