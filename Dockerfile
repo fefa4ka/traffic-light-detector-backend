@@ -40,7 +40,7 @@ COPY *.py /app/
 WORKDIR /app
 
 # Expose default Mosquitto ports and API port
-EXPOSE 1883 9001 6000
+EXPOSE 1883 6000
 
 # Copy startup script
 COPY start_services.sh /app/start_services.sh
