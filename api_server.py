@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from flask import Flask, jsonify
+from mqtt_listener import predict_next_change
 
 app = Flask(__name__)
 DB_PATH = "/data/detectors.db"
@@ -39,6 +40,9 @@ def get_intersection_status(intersection_id):
         "traffic_lights": [{
             "light_id": light['light_id'],
             "current_status": light['state'],
+            "time_to_next_change_seconds": predict_next_change(light['light_id'], light['state'])[1],
+            "predicted_next_status": predict_next_change(light['light_id'], light['state'])[0],
+            "prediction_confidence": predict_next_change(light['light_id'], light['state'])[2],
             "location": {
                 "latitude": float(light['location'].split(',')[0].strip()),
                 "longitude": float(light['location'].split(',')[1].strip())

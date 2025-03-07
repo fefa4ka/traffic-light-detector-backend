@@ -1,6 +1,7 @@
 import base64
 import sqlite3
 import register_detector
+import time
 from collections import defaultdict
 from datetime import datetime
 
@@ -220,6 +221,60 @@ def save_telemetry(detector_id, channels, timestamp, counter):
     
     conn.commit()
     conn.close()
+
+def predict_next_change(light_id, current_state):
+    """Enhanced prediction with time-weighted averages"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT previous_state, next_state, 
+               SUM(duration * weight)/SUM(weight) as weighted_avg,
+               COUNT(*) as samples
+        FROM (
+            SELECT *, 
+                   EXP(-0.001 * (JULIANDAY('now') - JULIANDAY(last_updated))) as weight
+            FROM state_durations
+            WHERE light_id = ? AND previous_state = ?
+            ORDER BY last_updated DESC
+            LIMIT 100
+        )
+        GROUP BY previous_state, next_state
+        HAVING samples > 2
+    ''', (light_id, current_state))
+    
+    history = cursor.fetchall()
+    
+    # Get current state duration
+    cursor.execute('''
+        SELECT timestamp 
+        FROM traffic_light_states 
+        WHERE light_id = ? 
+        ORDER BY timestamp DESC 
+        LIMIT 1
+    ''', (light_id,))
+    result = cursor.fetchone()
+    current_state_start = result['timestamp'] if result else time.time()
+    current_state_duration = time.time() - current_state_start
+    
+    if history:
+        best = max(history, key=lambda x: x['samples'])
+        avg_duration = max(min(best['weighted_avg'], 300), 30)  # Safety limits
+        time_remaining = avg_duration - current_state_duration
+        confidence = min(best['samples'] / 10, 1.0)
+        return (best['next_state'], max(0, time_remaining), confidence)
+    
+    # Fallback to time-aware defaults
+    hour = datetime.now().hour
+    if 7 <= hour < 10 or 16 <= hour < 19:  # Rush hours
+        default_duration = 40 if current_state == 'GREEN' else 90
+    else:
+        default_duration = 60 if current_state == 'GREEN' else 120
+        
+    return ('RED' if current_state == 'GREEN' else 'GREEN', 
+           max(default_duration - current_state_duration, 0),
+           0.5)
 
 def on_message(client, userdata, msg):
     """Handle incoming MQTT messages and process traffic states."""
