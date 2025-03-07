@@ -141,6 +141,18 @@ def save_telemetry(detector_id, channels, timestamp, counter):
         )
     """)
     
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS state_durations (
+            light_id INTEGER NOT NULL,
+            previous_state TEXT NOT NULL,
+            next_state TEXT NOT NULL,
+            duration REAL NOT NULL,
+            last_updated DATETIME NOT NULL,
+            PRIMARY KEY (light_id, previous_state, next_state),
+            FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
+        )
+    """)
+    
     cursor.execute("INSERT INTO telemetry (detector_id, channels, timestamp, counter) VALUES (?, ?, ?, ?)",
                    (detector_id, channels, timestamp, counter))
     
