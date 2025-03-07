@@ -42,6 +42,10 @@ WORKDIR /app
 # Expose default Mosquitto ports and API port
 EXPOSE 1883 9001 6000
 
-# Ensure required directories and files exist before starting Mosquitto
+# Copy startup script
+COPY start_services.sh /app/start_services.sh
+
+# Ensure required directories and files exist before starting services
 CMD mkdir -p /data && touch /data/passwords /data/detectors.db && chmod 600 /data/passwords && \
-    /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf
+    /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf & \
+    sh /app/start_services.sh
