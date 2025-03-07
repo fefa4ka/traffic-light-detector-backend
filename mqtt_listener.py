@@ -1,12 +1,13 @@
 import base64
 import sqlite3
-import register_detector
 import time
 from collections import defaultdict
 from datetime import datetime
 
 import paho.mqtt.client as mqtt
 import telemetry_pb2
+
+import register_detector
 
 DB_PATH = "/data/detectors.db"
 MQTT_BROKER = "localhost"
@@ -243,7 +244,7 @@ def predict_next_change(light_id, current_state):
             LIMIT 100
         )
         GROUP BY previous_state, next_state
-        HAVING samples >= 3  # More clear minimum sample threshold
+        HAVING samples >= 3  
     ''', (light_id, current_state))
     
     history = cursor.fetchall()
