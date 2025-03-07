@@ -224,34 +224,34 @@ def save_telemetry(detector_id, channels, timestamp, counter):
     conn.close()
 
 def predict_next_change(light_id, current_state):
-    """Simple prediction using last transition duration"""
+    """Predict next change using duration of same type of recent transition"""
     print(f"\n[PREDICT] Starting prediction for light {light_id} ({current_state})")
     
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Get last transition
+    # Get last transition of the same type
     cursor.execute("""
         SELECT previous_state, next_state, duration, last_updated
         FROM state_durations
-        WHERE light_id = ?
+        WHERE light_id = ? AND previous_state = ?
         ORDER BY last_updated DESC
         LIMIT 1
-    """, (light_id,))
+    """, (light_id, current_state))
     
     last_transition = cursor.fetchone()
     
     if last_transition:
-        print("  Last transition:")
+        print("  Last transition of same type:")
         print(f"    From: {last_transition['previous_state']}")
         print(f"    To: {last_transition['next_state']}")
         print(f"    Duration: {last_transition['duration']:.2f}s")
         print(f"    At: {last_transition['last_updated']}")
         
-        # Simple prediction: use last duration
+        # Use duration from same type transition
         predicted_duration = float(last_transition['duration'])
-        next_state = 'GREEN' if current_state == 'RED' else 'RED'
+        next_state = last_transition['next_state']
         
         # Get current state duration
         cursor.execute('''
@@ -268,7 +268,7 @@ def predict_next_change(light_id, current_state):
         time_remaining = predicted_duration - current_state_duration
         confidence = 1.0  # Always confident in last transition
         
-        print("\n[PREDICT] Using last transition:")
+        print("\n[PREDICT] Using same type transition:")
         print(f"  Next state: {next_state}")
         print(f"  Expected duration: {predicted_duration:.2f}s")
         print(f"  Current duration: {current_state_duration:.2f}s")
@@ -277,9 +277,14 @@ def predict_next_change(light_id, current_state):
         return (next_state, max(0, time_remaining), confidence)
     
     # Fallback to defaults if no transitions found
-    print("[PREDICT] No transitions found, using defaults")
-    next_state = 'GREEN' if current_state == 'RED' else 'RED'
-    default_duration = 60 if current_state == 'GREEN' else 120
+    print("[PREDICT] No transitions of same type found, using defaults")
+    if current_state == 'RED':
+        next_state = 'GREEN'
+        default_duration = 30  # Default RED->GREEN duration
+    else:
+        next_state = 'RED'
+        default_duration = 60  # Default GREEN->RED duration
+        
     return (next_state, default_duration, 0.5)
 
 def on_message(client, userdata, msg):
