@@ -39,7 +39,11 @@ def get_channel_mappings():
 
 # Track light states and their timing
 light_states = defaultdict(lambda: {'state': 'RED', 'last_change': time.time()})
-STATE_DURATION = 10  # Seconds between state changes
+# Different durations for each transition
+STATE_DURATIONS = {
+    'RED': 10,    # RED->GREEN transition after 10 seconds
+    'GREEN': 30   # GREEN->RED transition after 30 seconds
+}
 
 def generate_mock_data():
     """Generate telemetry data following fixture-defined patterns"""
@@ -54,10 +58,12 @@ def generate_mock_data():
     # Update states based on timing
     for light_id in config:
         state_info = light_states[light_id]
-        if current_time - state_info['last_change'] > STATE_DURATION:
+        duration = STATE_DURATIONS[state_info['state']]
+        
+        if current_time - state_info['last_change'] > duration:
             # Toggle state
             new_state = 'GREEN' if state_info['state'] == 'RED' else 'RED'
-            print(f"[DEBUG] Changing light {light_id} from {state_info['state']} to {new_state} after {STATE_DURATION}s")
+            print(f"[DEBUG] Changing light {light_id} from {state_info['state']} to {new_state} after {duration}s")
             light_states[light_id] = {
                 'state': new_state,
                 'last_change': current_time
