@@ -45,21 +45,28 @@ def get_intersection_status(intersection_id):
         return None
     
     # Format response
-    return {
-        "intersection_id": intersection_id,
-        "timestamp": datetime.now().isoformat(),
-        "traffic_lights": [{
+    traffic_lights = []
+    for light in lights:
+        # Make a single prediction call per light
+        next_state, time_remaining, confidence = predict_next_change(light['light_id'], light['state'])
+        
+        traffic_lights.append({
             "light_id": light['light_id'],
             "current_status": light['state'],
-            "time_to_next_change_seconds": predict_next_change(light['light_id'], light['state'])[1],
-            "predicted_next_status": predict_next_change(light['light_id'], light['state'])[0],
-            "prediction_confidence": predict_next_change(light['light_id'], light['state'])[2],
+            "time_to_next_change_seconds": time_remaining,
+            "predicted_next_status": next_state,
+            "prediction_confidence": confidence,
             "location": {
                 "latitude": float(light['location'].split(',')[0].strip()),
                 "longitude": float(light['location'].split(',')[1].strip())
             },
             "name": light['name']
-        } for light in lights]
+        })
+    
+    return {
+        "intersection_id": intersection_id,
+        "timestamp": datetime.now().isoformat(),
+        "traffic_lights": traffic_lights
     }
 
 @app.route('/status/<intersection_id>')

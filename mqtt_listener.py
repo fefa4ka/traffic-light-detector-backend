@@ -177,7 +177,8 @@ def save_telemetry(detector_id, channels, timestamp, counter):
 
 def predict_next_change(light_id, current_state):
     """Predict next change using duration of same type of recent transition"""
-    print(f"\n[PREDICT] Starting prediction for light {light_id} ({current_state})")
+    # Only log in debug mode or first prediction
+    debug_log = False
     
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -195,12 +196,6 @@ def predict_next_change(light_id, current_state):
     last_transition = cursor.fetchone()
     
     if last_transition:
-        print("  Last transition of same type:")
-        print(f"    From: {last_transition['previous_state']}")
-        print(f"    To: {last_transition['next_state']}")
-        print(f"    Duration: {last_transition['duration']:.2f}s")
-        print(f"    At: {last_transition['last_updated']}")
-        
         # Use duration from same type transition
         predicted_duration = float(last_transition['duration'])
         next_state = last_transition['next_state']
@@ -219,16 +214,16 @@ def predict_next_change(light_id, current_state):
         time_remaining = max(0, predicted_duration - current_state_duration)
         confidence = 1.0  # Always confident in last transition
         
-        print("\n[PREDICT] Using same type transition:")
-        print(f"  Next state: {next_state}")
-        print(f"  Expected duration: {predicted_duration:.2f}s")
-        print(f"  Current duration: {current_state_duration:.2f}s")
-        print(f"  Time remaining: {time_remaining:.2f}s, Confidence: {confidence:.2f}")
+        if debug_log:
+            print(f"\n[PREDICT] Light {light_id} ({current_state}): Next={next_state}, "
+                  f"Remaining={time_remaining:.2f}s, Confidence={confidence:.2f}")
         
         return (next_state, max(0, time_remaining), confidence)
     
     # Fallback to defaults if no transitions found
-    print("[PREDICT] No transitions of same type found, using defaults")
+    if debug_log:
+        print(f"[PREDICT] Light {light_id}: No transitions found, using defaults")
+        
     if current_state == 'RED':
         next_state = 'GREEN'
         default_duration = 30  # Default RED->GREEN duration
