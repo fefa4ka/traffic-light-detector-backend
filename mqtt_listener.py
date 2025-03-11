@@ -107,54 +107,6 @@ def save_telemetry(detector_id, channels, timestamp, counter):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Save raw telemetry
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS telemetry (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            detector_id INTEGER NOT NULL,
-            channels INTEGER NOT NULL,
-            timestamp INTEGER NOT NULL,
-            counter INTEGER NOT NULL
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS detectors (
-            name TEXT PRIMARY KEY,
-            password TEXT NOT NULL
-        )
-    """)
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS traffic_lights (
-            light_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            intersection_id TEXT NOT NULL,
-            description TEXT NOT NULL
-        )
-    """)
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS traffic_light_states (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            light_id INTEGER NOT NULL,
-            state TEXT CHECK(state IN ('RED', 'GREEN')) NOT NULL,
-            timestamp DATETIME NOT NULL,
-            FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
-        )
-    """)
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS state_durations (
-            light_id INTEGER NOT NULL,
-            previous_state TEXT NOT NULL,
-            next_state TEXT NOT NULL,
-            duration REAL NOT NULL,
-            last_updated DATETIME NOT NULL,
-            PRIMARY KEY (light_id, previous_state, next_state),
-            FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
-        )
-    """)
-    
     cursor.execute("INSERT INTO telemetry (detector_id, channels, timestamp, counter) VALUES (?, ?, ?, ?)",
                    (detector_id, channels, timestamp, counter))
     
@@ -334,7 +286,79 @@ def on_message(client, userdata, msg):
         import traceback
         traceback.print_exc()
 
+def initialize_database():
+    """Initialize all required database tables"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Create all necessary tables
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS telemetry (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            detector_id INTEGER NOT NULL,
+            channels INTEGER NOT NULL,
+            timestamp INTEGER NOT NULL,
+            counter INTEGER NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS detectors (
+            name TEXT PRIMARY KEY,
+            password TEXT NOT NULL
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS traffic_lights (
+            light_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            location TEXT NOT NULL,
+            intersection_id TEXT NOT NULL DEFAULT 'UNGROUPED'
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS traffic_light_channels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            light_id INTEGER NOT NULL,
+            detector_id INTEGER NOT NULL,
+            channel_mask INTEGER NOT NULL,
+            signal_color TEXT CHECK(signal_color IN ('RED', 'GREEN')) NOT NULL,
+            FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS traffic_light_states (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            light_id INTEGER NOT NULL,
+            state TEXT CHECK(state IN ('RED', 'GREEN')) NOT NULL,
+            timestamp DATETIME NOT NULL,
+            FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS state_durations (
+            light_id INTEGER NOT NULL,
+            previous_state TEXT NOT NULL,
+            next_state TEXT NOT NULL,
+            duration REAL NOT NULL,
+            last_updated DATETIME NOT NULL,
+            PRIMARY KEY (light_id, previous_state, next_state),
+            FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+    print("Database tables initialized")
+
 def main():
+    # Initialize database tables
+    initialize_database()
+    
     username, password = register_detector.get_or_create_user(LISTENER_USERNAME)
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.username_pw_set(username, password)

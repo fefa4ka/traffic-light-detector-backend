@@ -14,6 +14,17 @@ def get_intersection_status(intersection_id):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
+    # Ensure the table exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS traffic_light_states (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            light_id INTEGER NOT NULL,
+            state TEXT CHECK(state IN ('RED', 'GREEN')) NOT NULL,
+            timestamp DATETIME NOT NULL,
+            FOREIGN KEY (light_id) REFERENCES traffic_lights(light_id)
+        )
+    """)
+    
     # Get latest states for all lights in the intersection
     cursor.execute("""
         SELECT tl.light_id, tl.name, tl.location, tls.state, tls.timestamp 
