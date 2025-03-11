@@ -281,6 +281,43 @@ def on_message(client, userdata, msg):
         import traceback
         traceback.print_exc()
 
+def cleanup_old_data():
+    """Remove old data to prevent database bloat"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Keep only the last 7 days of telemetry data
+    retention_days = 7
+    cutoff_timestamp = int(time.time()) - (retention_days * 24 * 60 * 60)
+    
+    cursor.execute("DELETE FROM telemetry WHERE timestamp < ?", (cutoff_timestamp,))
+    deleted_telemetry = cursor.rowcount
+    
+    # Keep only the last 1000 state changes per light
+    cursor.execute("""
+        DELETE FROM traffic_light_states 
+        WHERE id NOT IN (
+            SELECT id FROM (
+                SELECT id FROM traffic_light_states
+                GROUP BY light_id
+                ORDER BY timestamp DESC
+                LIMIT 1000
+            )
+        )
+    """)
+    deleted_states = cursor.rowcount
+    
+    # Vacuum database to reclaim space (only if we deleted a significant amount of data)
+    if deleted_telemetry > 100 or deleted_states > 100:
+        cursor.execute("VACUUM")
+        print("[CLEANUP] Database vacuumed to reclaim space")
+    
+    conn.commit()
+    conn.close()
+    
+    if deleted_telemetry > 0 or deleted_states > 0:
+        print(f"[CLEANUP] Removed {deleted_telemetry} old telemetry records and {deleted_states} old state records")
+
 def initialize_database():
     """Initialize all required database tables"""
     conn = sqlite3.connect(DB_PATH)
@@ -334,6 +371,10 @@ def initialize_database():
         )
     """)
     
+    # Create indexes for better query performance
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_telemetry_timestamp ON telemetry(timestamp)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_traffic_light_states_light_timestamp ON traffic_light_states(light_id, timestamp)")
+    
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS state_durations (
             light_id INTEGER NOT NULL,
@@ -354,15 +395,43 @@ def main():
     # Initialize database tables
     initialize_database()
     
+    # Run initial cleanup
+    cleanup_old_data()
+    
     username, password = register_detector.get_or_create_user(LISTENER_USERNAME)
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.username_pw_set(username, password)
     client.on_message = on_message
+    
+    # Set up periodic cleanup task
+    cleanup_interval = 3600  # Run cleanup every hour
+    last_cleanup = time.time()
+    
+    def on_connect(client, userdata, flags, rc, properties=None):
+        print(f"Connected with result code {rc}")
+        client.subscribe(MQTT_TOPIC)
+    
+    def maintenance_loop():
+        nonlocal last_cleanup
+        current_time = time.time()
+        
+        # Run cleanup if it's time
+        if current_time - last_cleanup > cleanup_interval:
+            cleanup_old_data()
+            last_cleanup = current_time
+            
+        # Schedule next check in 5 minutes
+        client.loop_timeout = 300
+    
+    client.on_connect = on_connect
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
-    client.subscribe(MQTT_TOPIC)
-
+    
     print("MQTT Listener Started...")
-    client.loop_forever()
+    
+    # Main loop with maintenance
+    while True:
+        client.loop(timeout=60.0)
+        maintenance_loop()
 
 if __name__ == "__main__":
     main()
