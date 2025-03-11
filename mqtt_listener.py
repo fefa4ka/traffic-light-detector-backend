@@ -286,29 +286,23 @@ def cleanup_old_data():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Keep only the last 7 days of telemetry data
-    retention_days = 7
-    cutoff_timestamp = int(time.time()) - (retention_days * 24 * 60 * 60)
+    # Keep only the last 1 hour of telemetry data
+    retention_hours = 1
+    cutoff_timestamp = int(time.time()) - (retention_hours * 60 * 60)
     
     cursor.execute("DELETE FROM telemetry WHERE timestamp < ?", (cutoff_timestamp,))
     deleted_telemetry = cursor.rowcount
     
-    # Keep only the last 1000 state changes per light
+    # Keep only the last hour of state changes
     cursor.execute("""
         DELETE FROM traffic_light_states 
-        WHERE id NOT IN (
-            SELECT id FROM (
-                SELECT id FROM traffic_light_states
-                GROUP BY light_id
-                ORDER BY timestamp DESC
-                LIMIT 1000
-            )
-        )
-    """)
+        WHERE timestamp < ?
+    """, (cutoff_timestamp,))
     deleted_states = cursor.rowcount
     
     # Vacuum database to reclaim space (only if we deleted a significant amount of data)
-    if deleted_telemetry > 100 or deleted_states > 100:
+    # Vacuum more frequently since we're keeping less data
+    if deleted_telemetry > 50 or deleted_states > 50:
         cursor.execute("VACUUM")
         print("[CLEANUP] Database vacuumed to reclaim space")
     
@@ -404,7 +398,7 @@ def main():
     client.on_message = on_message
     
     # Set up periodic cleanup task
-    cleanup_interval = 3600  # Run cleanup every hour
+    cleanup_interval = 900  # Run cleanup every 15 minutes
     last_cleanup = time.time()
     
     def on_connect(client, userdata, flags, rc, properties=None):
