@@ -300,13 +300,14 @@ def cleanup_old_data():
     """, (cutoff_timestamp,))
     deleted_states = cursor.rowcount
     
+    # Commit changes before vacuum
+    conn.commit()
+    
     # Vacuum database to reclaim space (only if we deleted a significant amount of data)
-    # Vacuum more frequently since we're keeping less data
     if deleted_telemetry > 50 or deleted_states > 50:
         cursor.execute("VACUUM")
         print("[CLEANUP] Database vacuumed to reclaim space")
     
-    conn.commit()
     conn.close()
     
     if deleted_telemetry > 0 or deleted_states > 0:
