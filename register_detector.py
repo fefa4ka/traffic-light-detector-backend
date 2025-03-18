@@ -74,15 +74,16 @@ def get_or_create_user(detector_id):
 def main():
     parser = argparse.ArgumentParser(description="Register a new traffic light detector.")
     parser.add_argument("name", type=str, help="Name of the traffic light detector")
+    parser.add_argument("--password", "-p", type=str, help="Optional password (will be generated if not provided)")
     
     args = parser.parse_args()
-    password = generate_password()
+    password = args.password if args.password else generate_password()
     
     create_mqtt_user(args.name, password)
     save_to_db(args.name, password)
     
     print(f"Detector '{args.name}' registered successfully.")
-    print(f"Generated password: {password}")
+    print(f"{'Provided' if args.password else 'Generated'} password: {password}")
 
 if __name__ == "__main__":
     main()
