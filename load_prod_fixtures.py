@@ -37,41 +37,73 @@ def load_prod_fixtures():
     """)        
     
     try:
-        # Create Office intersection light
-        office_light = {
-            'name': 'Office Main Entrance',
-            'location': '55.754052, 37.620482',
-            'intersection_id': 'Office',
-            'red_channel': 1,
-            'green_channel': 0
-        }
-
-        # Insert traffic light
-        cursor.execute("""
-            INSERT INTO traffic_lights (name, location, intersection_id)
-            VALUES (?, ?, ?)
-        """, (office_light['name'], office_light['location'], office_light['intersection_id']))
-        light_id = cursor.lastrowid
+        # Define the intersection and traffic lights
+        intersection_id = 'Office'
+        detector_id = 1761
+        location = '55.754052, 37.620482'
         
-        # Insert RED channel mapping (channel 1)
-        cursor.execute("""
-            INSERT INTO traffic_light_channels (light_id, detector_id, channel_mask, signal_color)
-            VALUES (?, ?, ?, ?)
-        """, (light_id, 1761, 1 << office_light['red_channel'], 'RED'))
+        # Define all 4 traffic lights with their channels
+        traffic_lights = [
+            {
+                'name': 'Office Light 1',
+                'location': location,
+                'intersection_id': intersection_id,
+                'red_channel': 0,
+                'green_channel': 4
+            },
+            {
+                'name': 'Office Light 2',
+                'location': location,
+                'intersection_id': intersection_id,
+                'red_channel': 1,
+                'green_channel': 5
+            },
+            {
+                'name': 'Office Light 3',
+                'location': location,
+                'intersection_id': intersection_id,
+                'red_channel': 8,
+                'green_channel': 12
+            },
+            {
+                'name': 'Office Light 4',
+                'location': location,
+                'intersection_id': intersection_id,
+                'red_channel': 9,
+                'green_channel': 13
+            }
+        ]
         
-        # Insert GREEN channel mapping (channel 0)
-        cursor.execute("""
-            INSERT INTO traffic_light_channels (light_id, detector_id, channel_mask, signal_color)
-            VALUES (?, ?, ?, ?)
-        """, (light_id, 1761, 1 << office_light['green_channel'], 'GREEN'))
-
+        print("Loading production fixtures:")
+        
+        # Insert all traffic lights
+        for light in traffic_lights:
+            # Insert traffic light
+            cursor.execute("""
+                INSERT INTO traffic_lights (name, location, intersection_id)
+                VALUES (?, ?, ?)
+            """, (light['name'], light['location'], light['intersection_id']))
+            light_id = cursor.lastrowid
+            
+            # Insert RED channel mapping
+            cursor.execute("""
+                INSERT INTO traffic_light_channels (light_id, detector_id, channel_mask, signal_color)
+                VALUES (?, ?, ?, ?)
+            """, (light_id, detector_id, 1 << light['red_channel'], 'RED'))
+            
+            # Insert GREEN channel mapping
+            cursor.execute("""
+                INSERT INTO traffic_light_channels (light_id, detector_id, channel_mask, signal_color)
+                VALUES (?, ?, ?, ?)
+            """, (light_id, detector_id, 1 << light['green_channel'], 'GREEN'))
+            
+            print(f"  Light: {light['name']}")
+            print(f"    RED: channel {light['red_channel']}")
+            print(f"    GREEN: channel {light['green_channel']}")
+        
         conn.commit()
-        print("Successfully loaded production fixtures:")
-        print(f"  Intersection: {office_light['intersection_id']}")
-        print(f"  Light: {office_light['name']}")
-        print(f"    RED: channel {office_light['red_channel']}")
-        print(f"    GREEN: channel {office_light['green_channel']}")
-        print(f"  Detector ID: 1761")
+        print(f"Successfully loaded all traffic lights for intersection: {intersection_id}")
+        print(f"Detector ID: {detector_id}")
 
     except sqlite3.Error as e:
         conn.rollback()
