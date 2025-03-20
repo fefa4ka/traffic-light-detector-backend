@@ -1,12 +1,74 @@
 import sqlite3
+import time
 from collections import defaultdict
 from datetime import datetime
 
 from flask import Flask, jsonify
-from mqtt_listener import predict_next_change
 
 app = Flask(__name__)
 DB_PATH = "/data/detectors.db"
+
+def predict_next_change(light_id, current_state):
+    """Predict next change using duration of same type of recent transition"""
+    # Only log in debug mode or first prediction
+    
+    # If current state is not valid, return default values
+    if current_state not in ('RED', 'GREEN'):
+        print(f"[PREDICT] Light {light_id}: Invalid current state '{current_state}', using defaults")
+        return ('UNKNOWN', 0, 0.0)
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Get last transition of the same type
+    cursor.execute("""
+        SELECT previous_state, next_state, duration, last_updated
+        FROM state_durations
+        WHERE light_id = ? AND previous_state = ?
+        ORDER BY last_updated DESC
+        LIMIT 1
+    """, (light_id, current_state))
+    
+    last_transition = cursor.fetchone()
+    
+    if last_transition:
+        # Use duration from same type transition
+        predicted_duration = float(last_transition['duration'])
+        next_state = last_transition['next_state']
+        
+        # Get current state duration
+        # Get actual state start time from durations table
+        cursor.execute('''
+            SELECT last_updated
+            FROM state_durations
+            WHERE light_id = ? AND next_state = ?
+            ORDER BY last_updated DESC
+            LIMIT 1
+        ''', (light_id, current_state))
+        result = cursor.fetchone()
+        current_state_start = time.mktime(datetime.fromisoformat(result[0]).timetuple()) if result[0] else time.time()
+        current_state_duration = time.time() - current_state_start
+        
+        time_remaining = max(0, predicted_duration - current_state_duration)
+        confidence = 1.0  # Always confident in last transition
+        
+        print(f"\n[PREDICT] Light {light_id} ({current_state}): Next={next_state}, "
+              f"Remaining={time_remaining:.2f}s, Confidence={confidence:.2f}")
+    
+        return (next_state, max(0, time_remaining), confidence)
+    
+    # Fallback to defaults if no transitions found
+    print(f"[PREDICT] Light {light_id}: No transitions found, using defaults")
+        
+    if current_state == 'RED':
+        next_state = 'GREEN'
+        default_duration = 30  # Default RED->GREEN duration
+    else:
+        next_state = 'RED'
+        default_duration = 60  # Default GREEN->RED duration
+        
+    return (next_state, default_duration, 0.5)
 
 def get_intersection_status(intersection_id):
     """Get current status of an intersection from the database"""
