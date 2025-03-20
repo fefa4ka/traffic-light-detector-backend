@@ -239,9 +239,11 @@ def predict_next_change(light_id, current_state):
         # Get current state duration
         # Get actual state start time from durations table
         cursor.execute('''
-            SELECT MAX(last_updated) 
+            SELECT last_updated
             FROM state_durations
             WHERE light_id = ? AND next_state = ?
+            ORDER BY last_updated DESC
+            LIMIT 1
         ''', (light_id, current_state))
         result = cursor.fetchone()
         current_state_start = time.mktime(datetime.fromisoformat(result[0]).timetuple()) if result[0] else time.time()
