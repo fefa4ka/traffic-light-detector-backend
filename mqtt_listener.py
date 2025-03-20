@@ -243,7 +243,7 @@ def on_message(client, userdata, msg):
         telemetry.ParseFromString(payload_decoded)
 
         # Save raw telemetry
-        save_telemetry(telemetry.id, telemetry.channels, telemetry.timestamp, telemetry.counter)
+        save_telemetry(telemetry.id, telemetry.channels, time.time(), telemetry.counter)
         
         # Process traffic light states
         states = process_traffic_states(telemetry.id, telemetry.channels)
