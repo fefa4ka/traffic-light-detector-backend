@@ -104,22 +104,39 @@ def process_traffic_states(detector_id, channels):
 
 def save_telemetry(detector_id, channels, timestamp, counter):
     """Save telemetry data and process traffic states."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute("INSERT INTO telemetry (detector_id, channels, timestamp, counter) VALUES (?, ?, ?, ?)",
-                   (detector_id, channels, timestamp, counter))
-    
-    # Process and save traffic states
+    # Process traffic states first to check if any valid states exist
     processed = process_traffic_states(detector_id, channels)
+    
+    # Check if any lights have a valid state (not UNKNOWN)
+    has_valid_states = False
+    for light_id, light_data in processed['lights'].items():
+        if light_data['red'] or light_data['green']:
+            has_valid_states = True
+            break
+    
+    # Only save telemetry if we have valid states
+    if has_valid_states:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute("INSERT INTO telemetry (detector_id, channels, timestamp, counter) VALUES (?, ?, ?, ?)",
+                   (detector_id, channels, timestamp, counter))
     
     # Save individual light states
     for light_id, state in processed['lights'].items():
-        current_state = 'RED' if state['red'] else 'GREEN'
-        cursor.execute("""
-            INSERT INTO traffic_light_states (light_id, state, timestamp)
-            VALUES (?, ?, ?)
-        """, (light_id, current_state, timestamp))
+        # Only save states that are explicitly RED or GREEN
+        if state['red']:
+            current_state = 'RED'
+            cursor.execute("""
+                INSERT INTO traffic_light_states (light_id, state, timestamp)
+                VALUES (?, ?, ?)
+            """, (light_id, current_state, timestamp))
+        elif state['green']:
+            current_state = 'GREEN'
+            cursor.execute("""
+                INSERT INTO traffic_light_states (light_id, state, timestamp)
+                VALUES (?, ?, ?)
+            """, (light_id, current_state, timestamp))
 
         # Track state transition durations
         prev_state = cursor.execute("""
@@ -172,8 +189,10 @@ def save_telemetry(detector_id, channels, timestamp, counter):
             'timestamp': datetime.fromtimestamp(timestamp).isoformat()
         }
     
-    conn.commit()
-    conn.close()
+    # Only commit and close if we opened a connection
+    if has_valid_states:
+        conn.commit()
+        conn.close()
 
 def predict_next_change(light_id, current_state):
     """Predict next change using duration of same type of recent transition"""
@@ -258,9 +277,17 @@ def on_message(client, userdata, msg):
         print(f"  Detector ID: {telemetry.id}")
         print(f"  Timestamp: {datetime.fromtimestamp(telemetry.timestamp).isoformat()}")
         print("  Traffic Light States:")
+        
+        # Check if any valid states exist
+        has_valid_states = False
         for light_id, light_data in states['lights'].items():
             status = "RED" if light_data['red'] else "GREEN" if light_data['green'] else "UNKNOWN"
             print(f"    {light_data['name']} ({light_data['location']}): {status}")
+            if status != "UNKNOWN":
+                has_valid_states = True
+        
+        if not has_valid_states:
+            print("  WARNING: No valid states detected, telemetry not saved")
             
             # Debug logging for state determination
             print(f"      [DEBUG] Detector: {telemetry.id}, Light ID: {light_id}")
