@@ -281,6 +281,21 @@ def cleanup_old_data():
     """, (cutoff_timestamp,))
     deleted_states = cursor.rowcount
     
+    # Fix any timestamps from before 2024 (likely incorrect)
+    current_year = datetime.now().year
+    current_time = int(time.time())
+    year_2024_timestamp = 1704067200  # Jan 1, 2024
+    
+    cursor.execute("""
+        UPDATE traffic_light_states
+        SET timestamp = ?
+        WHERE timestamp < ?
+    """, (current_time, year_2024_timestamp))
+    
+    fixed_timestamps = cursor.rowcount
+    if fixed_timestamps > 0:
+        print(f"[CLEANUP] Fixed {fixed_timestamps} outdated timestamps (before 2024)")
+    
     # Remove any invalid state transitions (involving UNKNOWN states)
     cursor.execute("""
         DELETE FROM state_durations

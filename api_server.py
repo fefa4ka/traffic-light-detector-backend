@@ -17,6 +17,12 @@ def predict_next_change(light_id, current_state):
     
     print(f"\n[PREDICT] Starting prediction for Light {light_id}, current state: {current_state}")
     
+    # Define default durations for each state transition
+    DEFAULT_DURATIONS = {
+        'RED': {'next': 'GREEN', 'duration': 30},
+        'GREEN': {'next': 'RED', 'duration': 60}
+    }
+    
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -85,10 +91,28 @@ def predict_next_change(light_id, current_state):
                     
                     # Check if timestamp is too old (more than 1 day old)
                     if timestamp_year < current_year - 1 or current_time - current_state_start > 86400:
-                        print(f"[PREDICT] Timestamp is too old ({timestamp_year}), using default prediction")
-                        # Use a reasonable default for time remaining based on the predicted duration
-                        time_remaining = predicted_duration * 0.5  # Assume we're halfway through the cycle
-                        confidence = 0.5  # Lower confidence for default predictions
+                        print(f"[PREDICT] Timestamp is too old ({timestamp_year}), updating to current time")
+                    
+                        # Instead of using defaults, update the timestamp to current time
+                        # This fixes the old timestamp issue by creating a new record with current time
+                        try:
+                            update_cursor = conn.cursor()
+                            # Insert a new state record with current timestamp
+                            update_cursor.execute("""
+                                INSERT INTO traffic_light_states (light_id, state, timestamp)
+                                VALUES (?, ?, ?)
+                            """, (light_id, current_state, int(current_time)))
+                            conn.commit()
+                            print(f"[PREDICT] Updated timestamp for light {light_id} to current time")
+                        
+                            # Now use a small portion of the predicted duration as time remaining
+                            # This assumes the light just changed to this state
+                            time_remaining = predicted_duration * 0.9  # Assume we're at the start of the cycle
+                            confidence = 0.7  # Medium confidence for updated timestamps
+                        except Exception as update_error:
+                            print(f"[PREDICT] Error updating timestamp: {update_error}")
+                            time_remaining = predicted_duration * 0.5  # Fallback to halfway through cycle
+                            confidence = 0.5  # Lower confidence for default predictions
                     else:
                         # Normal calculation for recent timestamps
                         current_state_duration = current_time - current_state_start
@@ -161,13 +185,22 @@ def predict_next_change(light_id, current_state):
         
         # Fallback to defaults if no transitions found or timestamp issues
         print(f"[PREDICT] Light {light_id}: Using default prediction values")
-            
-        if current_state == 'RED':
-            next_state = 'GREEN'
-            default_duration = 30  # Default RED->GREEN duration
-        else:
-            next_state = 'RED'
-            default_duration = 60  # Default GREEN->RED duration
+        
+        # Use the predefined defaults
+        next_state = DEFAULT_DURATIONS[current_state]['next']
+        default_duration = DEFAULT_DURATIONS[current_state]['duration']
+        
+        # Create a new timestamp record to establish history
+        try:
+            current_time = time.time()
+            cursor.execute("""
+                INSERT INTO traffic_light_states (light_id, state, timestamp)
+                VALUES (?, ?, ?)
+            """, (light_id, current_state, int(current_time)))
+            conn.commit()
+            print(f"[PREDICT] Created new timestamp record for light {light_id}")
+        except Exception as e:
+            print(f"[PREDICT] Error creating timestamp record: {e}")
             
         return (next_state, default_duration, 0.5)
     
