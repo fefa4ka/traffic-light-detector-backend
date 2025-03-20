@@ -130,69 +130,88 @@ def save_telemetry(detector_id, channels, timestamp, counter):
             current_state = "UNKNOWN"
             if state['red']:
                 current_state = 'RED'
-                cursor.execute("""
-                    INSERT INTO traffic_light_states (light_id, state, timestamp)
-                    VALUES (?, ?, ?)
-                """, (light_id, current_state, timestamp))
             elif state['green']:
                 current_state = 'GREEN'
+            
+            # Only proceed if we have a valid state
+            if current_state in ('RED', 'GREEN'):
+                # Get the previous state record for this light
+                prev_state_record = cursor.execute("""
+                    SELECT state, timestamp 
+                    FROM traffic_light_states 
+                    WHERE light_id = ? 
+                    ORDER BY timestamp DESC 
+                    LIMIT 1
+                """, (light_id,)).fetchone()
+                
+                # Insert the new state
                 cursor.execute("""
                     INSERT INTO traffic_light_states (light_id, state, timestamp)
                     VALUES (?, ?, ?)
                 """, (light_id, current_state, timestamp))
-
-            # Only track state transitions for valid states (RED or GREEN)
-            if current_state in ('RED', 'GREEN'):
-                # Track state transition durations
-                prev_state = cursor.execute("""
-                    SELECT state 
-                    FROM traffic_light_states 
-                    WHERE light_id = ? 
-                    AND timestamp < ?
-                    ORDER BY timestamp DESC 
-                    LIMIT 1
-                """, (light_id, timestamp)).fetchone()
-
-                if prev_state and prev_state[0] != current_state and prev_state[0] in ('RED', 'GREEN'):
-                    # Get first timestamp of previous state sequence
-                    prev_timestamp_result = cursor.execute("""
-                        SELECT MIN(timestamp) 
-                        FROM traffic_light_states
-                        WHERE light_id = ? 
-                        AND state = ? 
-                        AND timestamp < ?
-                        AND timestamp > (
-                            SELECT COALESCE(MAX(timestamp), 0) 
-                            FROM traffic_light_states 
-                            WHERE light_id = ? 
-                            AND state != ?
-                            AND timestamp < ?
-                        )
-                    """, (light_id, prev_state[0], timestamp, light_id, prev_state[0], timestamp)).fetchone()
+                
+                # Check if this is a state transition
+                if prev_state_record and prev_state_record[0] != current_state and prev_state_record[0] in ('RED', 'GREEN'):
+                    prev_state = prev_state_record[0]
+                    prev_timestamp = prev_state_record[1]
                     
-                    # Check if prev_timestamp is None before calculating duration
-                    if prev_timestamp_result and prev_timestamp_result[0] is not None:
-                        prev_timestamp = prev_timestamp_result[0]
-                        # Calculate duration from actual state change
+                    # Calculate duration - ensure timestamps are numeric
+                    try:
+                        if isinstance(prev_timestamp, str) and not prev_timestamp.isdigit():
+                            # Try to parse ISO format
+                            from datetime import datetime
+                            prev_dt = datetime.fromisoformat(prev_timestamp)
+                            prev_timestamp = int(prev_dt.timestamp())
+                        else:
+                            prev_timestamp = int(float(prev_timestamp))
+                            
+                        # Ensure current timestamp is numeric
+                        if isinstance(timestamp, str) and not timestamp.isdigit():
+                            current_dt = datetime.fromisoformat(timestamp)
+                            timestamp = int(current_dt.timestamp())
+                        else:
+                            timestamp = int(float(timestamp))
+                            
+                        # Calculate duration
                         duration = timestamp - prev_timestamp
                 
-                        # Only record transitions between valid states (RED and GREEN)
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO state_durations 
-                            (light_id, previous_state, next_state, duration, last_updated)
-                            VALUES (?, ?, ?, ?, ?)
-                        """, (light_id, prev_state[0], current_state, duration, 
-                             datetime.now().isoformat()))
+                        # Only record transitions if duration is reasonable (between 5 and 300 seconds)
+                        if 5 <= duration <= 300:
+                            cursor.execute("""
+                                INSERT OR REPLACE INTO state_durations 
+                                (light_id, previous_state, next_state, duration, last_updated)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (light_id, prev_state, current_state, duration, 
+                                 datetime.now().isoformat()))
+                            
+                            print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
+                            print(f"  Previous: {prev_state} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
+                            print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
+                            print(f"  Duration: {duration:.2f}s")
+                            print(f"  Recorded at: {datetime.now().isoformat()}")
+                        else:
+                            print(f"\n[WARNING] Unreasonable duration ({duration:.2f}s) for light {light_id}")
+                            print(f"  Previous: {prev_state} at {prev_timestamp}")
+                            print(f"  Current: {current_state} at {timestamp}")
+                            print(f"  Duration outside valid range (5-300s), not recording")
+                    except (ValueError, TypeError) as e:
+                        print(f"\n[WARNING] Error calculating duration for light {light_id}: {e}")
+                        print(f"  Previous state: {prev_state} at {prev_timestamp} (type: {type(prev_timestamp).__name__})")
+                        print(f"  Current state: {current_state} at {timestamp} (type: {type(timestamp).__name__})")
                         
-                        print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
-                        print(f"  Previous: {prev_state[0]} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
-                        print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
-                        print(f"  Duration: {duration:.2f}s")
-                        print(f"  Recorded at: {datetime.now().isoformat()}")
-                    else:
-                        print(f"\n[WARNING] Could not determine previous timestamp for light {light_id}")
-                        print(f"  Previous state: {prev_state[0]}, Current state: {current_state}")
-                        print(f"  No duration recorded")
+                        # Try to fix the timestamp issue by creating a new record with current time
+                        try:
+                            current_time = int(time.time())
+                            cursor.execute("""
+                                UPDATE traffic_light_states
+                                SET timestamp = ?
+                                WHERE light_id = ? AND state = ?
+                                ORDER BY rowid DESC
+                                LIMIT 1
+                            """, (current_time, light_id, current_state))
+                            print(f"  Fixed timestamp for latest {current_state} state to {current_time}")
+                        except Exception as fix_error:
+                            print(f"  Failed to fix timestamp: {fix_error}")
         
         # Update intersection states cache
         for intersection_id, data in processed['intersections'].items():

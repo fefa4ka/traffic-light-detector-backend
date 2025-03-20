@@ -23,6 +23,9 @@ def predict_next_change(light_id, current_state):
         'GREEN': {'next': 'RED', 'duration': 60}
     }
     
+    # Define the expected next state based on current state
+    expected_next_state = 'GREEN' if current_state == 'RED' else 'RED'
+    
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -32,12 +35,24 @@ def predict_next_change(light_id, current_state):
         cursor.execute("""
             SELECT previous_state, next_state, duration, last_updated
             FROM state_durations
-            WHERE light_id = ? AND previous_state = ?
+            WHERE light_id = ? AND previous_state = ? AND next_state = ?
             ORDER BY last_updated DESC
             LIMIT 1
-        """, (light_id, current_state))
+        """, (light_id, current_state, expected_next_state))
         
         last_transition = cursor.fetchone()
+        
+        # If no specific transition found, try any transition from current state
+        if not last_transition:
+            cursor.execute("""
+                SELECT previous_state, next_state, duration, last_updated
+                FROM state_durations
+                WHERE light_id = ? AND previous_state = ?
+                ORDER BY last_updated DESC
+                LIMIT 1
+            """, (light_id, current_state))
+            
+            last_transition = cursor.fetchone()
         
         if last_transition:
             # Use duration from same type transition
