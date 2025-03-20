@@ -15,6 +15,8 @@ def predict_next_change(light_id, current_state):
         print(f"[PREDICT] Light {light_id}: Invalid current state '{current_state}', using defaults")
         return ('UNKNOWN', 0, 0.0)
     
+    print(f"\n[PREDICT] Starting prediction for Light {light_id}, current state: {current_state}")
+    
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -36,6 +38,8 @@ def predict_next_change(light_id, current_state):
             predicted_duration = float(last_transition['duration'])
             next_state = last_transition['next_state']
             
+            print(f"[PREDICT] Found transition data: {current_state}->{next_state}, duration={predicted_duration:.2f}s, updated={last_transition['last_updated']}")
+            
             # Get the most recent timestamp when this state started
             cursor.execute('''
                 SELECT timestamp 
@@ -48,26 +52,102 @@ def predict_next_change(light_id, current_state):
             result = cursor.fetchone()
             
             if result and result['timestamp']:
+                # Debug the timestamp value
+                print(f"[PREDICT] Raw timestamp from DB: {result['timestamp']} (type: {type(result['timestamp']).__name__})")
+                
                 # Convert timestamp to seconds since epoch
                 try:
                     # Handle both integer timestamps and ISO format strings
+                    current_time = time.time()
+                    print(f"[PREDICT] Current time: {current_time} ({datetime.fromtimestamp(current_time).isoformat()})")
+                    
                     if isinstance(result['timestamp'], int):
                         current_state_start = result['timestamp']
+                        print(f"[PREDICT] Timestamp is integer: {current_state_start}")
                     else:
-                        current_state_start = time.mktime(datetime.fromisoformat(result['timestamp']).timetuple())
+                        # Try parsing as ISO format
+                        try:
+                            current_state_start = time.mktime(datetime.fromisoformat(result['timestamp']).timetuple())
+                            print(f"[PREDICT] Parsed ISO timestamp: {current_state_start} ({datetime.fromtimestamp(current_state_start).isoformat()})")
+                        except ValueError:
+                            # Try parsing as float/int string
+                            current_state_start = float(result['timestamp'])
+                            print(f"[PREDICT] Parsed numeric timestamp: {current_state_start}")
                     
-                    current_state_duration = time.time() - current_state_start
+                    current_state_duration = current_time - current_state_start
+                    print(f"[PREDICT] Current state duration: {current_state_duration:.2f}s")
+                    print(f"[PREDICT] Predicted total duration: {predicted_duration:.2f}s")
+                    
                     time_remaining = max(0, predicted_duration - current_state_duration)
                     confidence = 1.0  # Always confident in last transition
                     
-                    print(f"\n[PREDICT] Light {light_id} ({current_state}): Next={next_state}, "
+                    print(f"[PREDICT] Light {light_id} ({current_state}): Next={next_state}, "
                           f"Remaining={time_remaining:.2f}s, Confidence={confidence:.2f}")
+                    
+                    # Check if time_remaining is 0
+                    if time_remaining == 0:
+                        print(f"[PREDICT] WARNING: Zero time remaining detected!")
+                        print(f"[PREDICT] State start: {datetime.fromtimestamp(current_state_start).isoformat()}")
+                        print(f"[PREDICT] Current time: {datetime.fromtimestamp(current_time).isoformat()}")
+                        print(f"[PREDICT] Duration: {current_state_duration:.2f}s vs Predicted: {predicted_duration:.2f}s")
+                    
+                    # Query for all recent state changes for this light for debugging
+                    cursor.execute('''
+                        SELECT state, timestamp
+                        FROM traffic_light_states
+                        WHERE light_id = ?
+                        ORDER BY timestamp DESC
+                        LIMIT 5
+                    ''', (light_id,))
+                    
+                    recent_states = cursor.fetchall()
+                    print(f"[PREDICT] Recent state changes for light {light_id}:")
+                    for i, state in enumerate(recent_states):
+                        print(f"  {i+1}. {state['state']} at {state['timestamp']}")
                 
                     return (next_state, time_remaining, confidence)
                 except (ValueError, TypeError) as e:
                     print(f"[PREDICT] Error parsing timestamp for light {light_id}: {e}")
+                    import traceback
+                    traceback.print_exc()
             else:
                 print(f"[PREDICT] No timestamp found for current state of light {light_id}")
+                
+                # Check if there are any state records at all
+                cursor.execute('''
+                    SELECT COUNT(*) as count
+                    FROM traffic_light_states
+                    WHERE light_id = ?
+                ''', (light_id,))
+                
+                count = cursor.fetchone()['count']
+                print(f"[PREDICT] Total state records for light {light_id}: {count}")
+        else:
+            print(f"[PREDICT] No transition data found for light {light_id} with state {current_state}")
+            
+            # Check if there are any transitions at all
+            cursor.execute('''
+                SELECT COUNT(*) as count
+                FROM state_durations
+                WHERE light_id = ?
+            ''', (light_id,))
+            
+            count = cursor.fetchone()['count']
+            print(f"[PREDICT] Total transition records for light {light_id}: {count}")
+            
+            if count > 0:
+                # Show available transitions
+                cursor.execute('''
+                    SELECT previous_state, next_state, duration, last_updated
+                    FROM state_durations
+                    WHERE light_id = ?
+                    ORDER BY last_updated DESC
+                ''', (light_id,))
+                
+                transitions = cursor.fetchall()
+                print(f"[PREDICT] Available transitions for light {light_id}:")
+                for t in transitions:
+                    print(f"  {t['previous_state']}->{t['next_state']}: {t['duration']:.2f}s (updated: {t['last_updated']})")
         
         # Fallback to defaults if no transitions found or timestamp issues
         print(f"[PREDICT] Light {light_id}: Using default prediction values")
@@ -83,6 +163,8 @@ def predict_next_change(light_id, current_state):
     
     except Exception as e:
         print(f"[PREDICT] Error predicting next change for light {light_id}: {e}")
+        import traceback
+        traceback.print_exc()
         # Return safe defaults
         next_state = 'GREEN' if current_state == 'RED' else 'RED'
         return (next_state, 45, 0.3)
