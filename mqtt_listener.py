@@ -125,6 +125,7 @@ def save_telemetry(detector_id, channels, timestamp, counter):
     # Save individual light states
     for light_id, state in processed['lights'].items():
         # Only save states that are explicitly RED or GREEN
+        current_state = "UNKNOWN"
         if state['red']:
             current_state = 'RED'
             cursor.execute("""
