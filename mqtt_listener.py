@@ -114,95 +114,105 @@ def save_telemetry(detector_id, channels, timestamp, counter):
             has_valid_states = True
             break
     
-    # Only save telemetry if we have valid states
-    if has_valid_states:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
+    # Always open a connection, but only save telemetry if we have valid states
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Only save telemetry if we have valid states
+        if has_valid_states:
+            cursor.execute("INSERT INTO telemetry (detector_id, channels, timestamp, counter) VALUES (?, ?, ?, ?)",
+                       (detector_id, channels, timestamp, counter))
         
-        cursor.execute("INSERT INTO telemetry (detector_id, channels, timestamp, counter) VALUES (?, ?, ?, ?)",
-                   (detector_id, channels, timestamp, counter))
-    
-    # Save individual light states
-    for light_id, state in processed['lights'].items():
-        # Only save states that are explicitly RED or GREEN
-        current_state = "UNKNOWN"
-        if state['red']:
-            current_state = 'RED'
-            cursor.execute("""
-                INSERT INTO traffic_light_states (light_id, state, timestamp)
-                VALUES (?, ?, ?)
-            """, (light_id, current_state, timestamp))
-        elif state['green']:
-            current_state = 'GREEN'
-            cursor.execute("""
-                INSERT INTO traffic_light_states (light_id, state, timestamp)
-                VALUES (?, ?, ?)
-            """, (light_id, current_state, timestamp))
+        # Save individual light states
+        for light_id, state in processed['lights'].items():
+            # Only save states that are explicitly RED or GREEN
+            current_state = "UNKNOWN"
+            if state['red']:
+                current_state = 'RED'
+                cursor.execute("""
+                    INSERT INTO traffic_light_states (light_id, state, timestamp)
+                    VALUES (?, ?, ?)
+                """, (light_id, current_state, timestamp))
+            elif state['green']:
+                current_state = 'GREEN'
+                cursor.execute("""
+                    INSERT INTO traffic_light_states (light_id, state, timestamp)
+                    VALUES (?, ?, ?)
+                """, (light_id, current_state, timestamp))
 
-        # Only track state transitions for valid states (RED or GREEN)
-        if current_state in ('RED', 'GREEN'):
-            # Track state transition durations
-            prev_state = cursor.execute("""
-                SELECT state 
-                FROM traffic_light_states 
-                WHERE light_id = ? 
-                AND timestamp < ?
-                ORDER BY timestamp DESC 
-                LIMIT 1
-            """, (light_id, timestamp)).fetchone()
-
-            if prev_state and prev_state[0] != current_state and prev_state[0] in ('RED', 'GREEN'):
-                # Get first timestamp of previous state sequence
-                prev_timestamp_result = cursor.execute("""
-                    SELECT MIN(timestamp) 
-                    FROM traffic_light_states
+            # Only track state transitions for valid states (RED or GREEN)
+            if current_state in ('RED', 'GREEN'):
+                # Track state transition durations
+                prev_state = cursor.execute("""
+                    SELECT state 
+                    FROM traffic_light_states 
                     WHERE light_id = ? 
-                    AND state = ? 
                     AND timestamp < ?
-                    AND timestamp > (
-                        SELECT COALESCE(MAX(timestamp), 0) 
-                        FROM traffic_light_states 
+                    ORDER BY timestamp DESC 
+                    LIMIT 1
+                """, (light_id, timestamp)).fetchone()
+
+                if prev_state and prev_state[0] != current_state and prev_state[0] in ('RED', 'GREEN'):
+                    # Get first timestamp of previous state sequence
+                    prev_timestamp_result = cursor.execute("""
+                        SELECT MIN(timestamp) 
+                        FROM traffic_light_states
                         WHERE light_id = ? 
-                        AND state != ?
+                        AND state = ? 
                         AND timestamp < ?
-                    )
-                """, (light_id, prev_state[0], timestamp, light_id, prev_state[0], timestamp)).fetchone()
-                
-                # Check if prev_timestamp is None before calculating duration
-                if prev_timestamp_result and prev_timestamp_result[0] is not None:
-                    prev_timestamp = prev_timestamp_result[0]
-                    # Calculate duration from actual state change
-                    duration = timestamp - prev_timestamp
-            
-                    # Only record transitions between valid states (RED and GREEN)
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO state_durations 
-                        (light_id, previous_state, next_state, duration, last_updated)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (light_id, prev_state[0], current_state, duration, 
-                         datetime.now().isoformat()))
+                        AND timestamp > (
+                            SELECT COALESCE(MAX(timestamp), 0) 
+                            FROM traffic_light_states 
+                            WHERE light_id = ? 
+                            AND state != ?
+                            AND timestamp < ?
+                        )
+                    """, (light_id, prev_state[0], timestamp, light_id, prev_state[0], timestamp)).fetchone()
                     
-                    print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
-                    print(f"  Previous: {prev_state[0]} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
-                    print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
-                    print(f"  Duration: {duration:.2f}s")
-                    print(f"  Recorded at: {datetime.now().isoformat()}")
-                else:
-                    print(f"\n[WARNING] Could not determine previous timestamp for light {light_id}")
-                    print(f"  Previous state: {prev_state[0]}, Current state: {current_state}")
-                    print(f"  No duration recorded")
-    
-    # Update intersection states cache
-    for intersection_id, data in processed['intersections'].items():
-        intersection_states[intersection_id] = {
-            'overall_state': data['overall_state'],
-            'lights': data['lights'],
-            'timestamp': datetime.fromtimestamp(timestamp).isoformat()
-        }
-    
-    # Only commit and close if we opened a connection
-    if has_valid_states:
+                    # Check if prev_timestamp is None before calculating duration
+                    if prev_timestamp_result and prev_timestamp_result[0] is not None:
+                        prev_timestamp = prev_timestamp_result[0]
+                        # Calculate duration from actual state change
+                        duration = timestamp - prev_timestamp
+                
+                        # Only record transitions between valid states (RED and GREEN)
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO state_durations 
+                            (light_id, previous_state, next_state, duration, last_updated)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (light_id, prev_state[0], current_state, duration, 
+                             datetime.now().isoformat()))
+                        
+                        print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
+                        print(f"  Previous: {prev_state[0]} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
+                        print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
+                        print(f"  Duration: {duration:.2f}s")
+                        print(f"  Recorded at: {datetime.now().isoformat()}")
+                    else:
+                        print(f"\n[WARNING] Could not determine previous timestamp for light {light_id}")
+                        print(f"  Previous state: {prev_state[0]}, Current state: {current_state}")
+                        print(f"  No duration recorded")
+        
+        # Update intersection states cache
+        for intersection_id, data in processed['intersections'].items():
+            intersection_states[intersection_id] = {
+                'overall_state': data['overall_state'],
+                'lights': data['lights'],
+                'timestamp': datetime.fromtimestamp(timestamp).isoformat()
+            }
+        
+        # Always commit changes
         conn.commit()
+    
+    except Exception as e:
+        print(f"Error saving telemetry data: {e}")
+        conn.rollback()
+        import traceback
+        traceback.print_exc()
+    
+    finally:
+        # Always close the connection
         conn.close()
 
 
