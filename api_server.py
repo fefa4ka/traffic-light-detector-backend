@@ -93,16 +93,10 @@ def predict_next_change(light_id, current_state):
                         print(f"[PREDICT] Timestamp is integer: {current_state_start} (year: {timestamp_year})")
                     else:
                         # Try parsing as ISO format
-                        try:
-                            dt = datetime.fromisoformat(result['timestamp'])
-                            current_state_start = time.mktime(dt.timetuple())
-                            timestamp_year = dt.year
-                            print(f"[PREDICT] Parsed ISO timestamp: {current_state_start} (year: {timestamp_year})")
-                        except ValueError:
-                            # Try parsing as float/int string
-                            current_state_start = float(result['timestamp'])
-                            timestamp_year = datetime.fromtimestamp(current_state_start).year
-                            print(f"[PREDICT] Parsed numeric timestamp: {current_state_start} (year: {timestamp_year})")
+                        # Try parsing as float/int string
+                        current_state_start = float(result['timestamp'])
+                        timestamp_year = datetime.fromtimestamp(current_state_start).year
+                        print(f"[PREDICT] Parsed numeric timestamp: {current_state_start} (year: {timestamp_year})")
                     
                     # Check if timestamp is too old (more than 1 day old)
                     if timestamp_year < current_year - 1 or current_time - current_state_start > 86400:
