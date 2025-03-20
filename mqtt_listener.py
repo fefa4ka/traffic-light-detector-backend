@@ -132,7 +132,7 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                 current_state = 'RED'
             elif state['green']:
                 current_state = 'GREEN'
-            
+                
             # Only proceed if we have a valid state
             if current_state in ('RED', 'GREEN'):
                 # Get the previous state record for this light
@@ -143,12 +143,13 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                     ORDER BY timestamp DESC 
                     LIMIT 1
                 """, (light_id,)).fetchone()
-                
-                # Insert the new state
-                cursor.execute("""
-                    INSERT INTO traffic_light_states (light_id, state, timestamp)
-                    VALUES (?, ?, ?)
-                """, (light_id, current_state, timestamp))
+                    
+                # Only insert a new state record if the state has changed
+                if not prev_state_record or prev_state_record[0] != current_state:
+                    cursor.execute("""
+                        INSERT INTO traffic_light_states (light_id, state, timestamp)
+                        VALUES (?, ?, ?)
+                    """, (light_id, current_state, timestamp))
                 
                 # Check if this is a state transition
                 if prev_state_record and prev_state_record[0] != current_state and prev_state_record[0] in ('RED', 'GREEN'):
