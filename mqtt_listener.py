@@ -290,11 +290,43 @@ def cleanup_old_data():
     if deleted_transitions > 0:
         print(f"[CLEANUP] Removed {deleted_transitions} invalid state transitions involving UNKNOWN states")
     
+    # Check for and fix outdated timestamps (from years ago)
+    current_year = datetime.now().year
+    current_time = int(time.time())
+    
+    # Find records with timestamps more than 1 year old
+    cursor.execute("""
+        SELECT COUNT(*) FROM traffic_light_states
+        WHERE timestamp < ?
+    """, (current_time - 31536000,))  # 31536000 = seconds in a year
+    
+    old_timestamps_count = cursor.fetchone()[0]
+    if old_timestamps_count > 0:
+        print(f"[CLEANUP] Found {old_timestamps_count} state records with timestamps more than 1 year old")
+        
+        # Option 1: Delete old records
+        cursor.execute("""
+            DELETE FROM traffic_light_states
+            WHERE timestamp < ?
+        """, (current_time - 31536000,))
+        
+        print(f"[CLEANUP] Removed {cursor.rowcount} outdated state records")
+        
+        # Option 2: Update state_durations with more recent data
+        cursor.execute("""
+            UPDATE state_durations
+            SET last_updated = ?
+            WHERE last_updated < ?
+        """, (datetime.now().isoformat(), datetime.now().replace(year=current_year-1).isoformat()))
+        
+        if cursor.rowcount > 0:
+            print(f"[CLEANUP] Updated {cursor.rowcount} outdated state duration records")
+    
     # Commit changes before vacuum
     conn.commit()
     
     # Vacuum database to reclaim space (only if we deleted a significant amount of data)
-    if deleted_telemetry > 50 or deleted_states > 50 or deleted_transitions > 0:
+    if deleted_telemetry > 50 or deleted_states > 50 or deleted_transitions > 0 or old_timestamps_count > 0:
         cursor.execute("VACUUM")
         print("[CLEANUP] Database vacuumed to reclaim space")
     

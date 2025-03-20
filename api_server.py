@@ -40,6 +40,9 @@ def predict_next_change(light_id, current_state):
             
             print(f"[PREDICT] Found transition data: {current_state}->{next_state}, duration={predicted_duration:.2f}s, updated={last_transition['last_updated']}")
             
+            # Check if we have stale timestamps (from 2019 or earlier)
+            current_year = datetime.now().year
+            
             # Get the most recent timestamp when this state started
             cursor.execute('''
                 SELECT timestamp 
@@ -61,35 +64,42 @@ def predict_next_change(light_id, current_state):
                     current_time = time.time()
                     print(f"[PREDICT] Current time: {current_time} ({datetime.fromtimestamp(current_time).isoformat()})")
                     
+                    timestamp_year = None
                     if isinstance(result['timestamp'], int):
                         current_state_start = result['timestamp']
-                        print(f"[PREDICT] Timestamp is integer: {current_state_start}")
+                        # Check if timestamp is from a reasonable time period
+                        timestamp_year = datetime.fromtimestamp(current_state_start).year
+                        print(f"[PREDICT] Timestamp is integer: {current_state_start} (year: {timestamp_year})")
                     else:
                         # Try parsing as ISO format
                         try:
-                            current_state_start = time.mktime(datetime.fromisoformat(result['timestamp']).timetuple())
-                            print(f"[PREDICT] Parsed ISO timestamp: {current_state_start} ({datetime.fromtimestamp(current_state_start).isoformat()})")
+                            dt = datetime.fromisoformat(result['timestamp'])
+                            current_state_start = time.mktime(dt.timetuple())
+                            timestamp_year = dt.year
+                            print(f"[PREDICT] Parsed ISO timestamp: {current_state_start} (year: {timestamp_year})")
                         except ValueError:
                             # Try parsing as float/int string
                             current_state_start = float(result['timestamp'])
-                            print(f"[PREDICT] Parsed numeric timestamp: {current_state_start}")
+                            timestamp_year = datetime.fromtimestamp(current_state_start).year
+                            print(f"[PREDICT] Parsed numeric timestamp: {current_state_start} (year: {timestamp_year})")
                     
-                    current_state_duration = current_time - current_state_start
-                    print(f"[PREDICT] Current state duration: {current_state_duration:.2f}s")
-                    print(f"[PREDICT] Predicted total duration: {predicted_duration:.2f}s")
-                    
-                    time_remaining = max(0, predicted_duration - current_state_duration)
-                    confidence = 1.0  # Always confident in last transition
+                    # Check if timestamp is too old (more than 1 day old)
+                    if timestamp_year < current_year - 1 or current_time - current_state_start > 86400:
+                        print(f"[PREDICT] Timestamp is too old ({timestamp_year}), using default prediction")
+                        # Use a reasonable default for time remaining based on the predicted duration
+                        time_remaining = predicted_duration * 0.5  # Assume we're halfway through the cycle
+                        confidence = 0.5  # Lower confidence for default predictions
+                    else:
+                        # Normal calculation for recent timestamps
+                        current_state_duration = current_time - current_state_start
+                        print(f"[PREDICT] Current state duration: {current_state_duration:.2f}s")
+                        print(f"[PREDICT] Predicted total duration: {predicted_duration:.2f}s")
+                        
+                        time_remaining = max(0, predicted_duration - current_state_duration)
+                        confidence = 1.0  # Full confidence for recent timestamps
                     
                     print(f"[PREDICT] Light {light_id} ({current_state}): Next={next_state}, "
                           f"Remaining={time_remaining:.2f}s, Confidence={confidence:.2f}")
-                    
-                    # Check if time_remaining is 0
-                    if time_remaining == 0:
-                        print(f"[PREDICT] WARNING: Zero time remaining detected!")
-                        print(f"[PREDICT] State start: {datetime.fromtimestamp(current_state_start).isoformat()}")
-                        print(f"[PREDICT] Current time: {datetime.fromtimestamp(current_time).isoformat()}")
-                        print(f"[PREDICT] Duration: {current_state_duration:.2f}s vs Predicted: {predicted_duration:.2f}s")
                     
                     # Query for all recent state changes for this light for debugging
                     cursor.execute('''
