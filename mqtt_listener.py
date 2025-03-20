@@ -159,7 +159,6 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                     try:
                         if isinstance(prev_timestamp, str) and not prev_timestamp.isdigit():
                             # Try to parse ISO format
-                            from datetime import datetime
                             prev_dt = datetime.fromisoformat(prev_timestamp)
                             prev_timestamp = int(prev_dt.timestamp())
                         else:
@@ -301,7 +300,7 @@ def cleanup_old_data():
     
     try:
         # Keep only the last 1 hour of telemetry data
-        retention_hours = 1
+        retention_hours = 0.1
         cutoff_timestamp = current_time - (retention_hours * 60 * 60)
         
         cursor.execute("DELETE FROM telemetry WHERE timestamp < ?", (cutoff_timestamp,))
