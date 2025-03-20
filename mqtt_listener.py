@@ -151,7 +151,7 @@ def save_telemetry(detector_id, channels, timestamp, counter):
 
         if prev_state and prev_state[0] != current_state:
             # Get first timestamp of previous state sequence
-            prev_timestamp = cursor.execute("""
+            prev_timestamp_result = cursor.execute("""
                 SELECT MIN(timestamp) 
                 FROM traffic_light_states
                 WHERE light_id = ? 
@@ -164,23 +164,30 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                     AND state != ?
                     AND timestamp < ?
                 )
-            """, (light_id, prev_state[0], timestamp, light_id, prev_state[0], timestamp)).fetchone()[0]
+            """, (light_id, prev_state[0], timestamp, light_id, prev_state[0], timestamp)).fetchone()
             
-            # Calculate duration from actual state change
-            duration = timestamp - prev_timestamp
+            # Check if prev_timestamp is None before calculating duration
+            if prev_timestamp_result and prev_timestamp_result[0] is not None:
+                prev_timestamp = prev_timestamp_result[0]
+                # Calculate duration from actual state change
+                duration = timestamp - prev_timestamp
             
-            cursor.execute("""
-                INSERT OR REPLACE INTO state_durations 
-                (light_id, previous_state, next_state, duration, last_updated)
-                VALUES (?, ?, ?, ?, ?)
-            """, (light_id, prev_state[0], current_state, duration, 
-                 datetime.now().isoformat()))
-            
-            print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
-            print(f"  Previous: {prev_state[0]} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
-            print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
-            print(f"  Duration: {duration:.2f}s")
-            print(f"  Recorded at: {datetime.now().isoformat()}")
+                cursor.execute("""
+                    INSERT OR REPLACE INTO state_durations 
+                    (light_id, previous_state, next_state, duration, last_updated)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (light_id, prev_state[0], current_state, duration, 
+                     datetime.now().isoformat()))
+                
+                print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
+                print(f"  Previous: {prev_state[0]} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
+                print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
+                print(f"  Duration: {duration:.2f}s")
+                print(f"  Recorded at: {datetime.now().isoformat()}")
+            else:
+                print(f"\n[WARNING] Could not determine previous timestamp for light {light_id}")
+                print(f"  Previous state: {prev_state[0]}, Current state: {current_state}")
+                print(f"  No duration recorded")
     
     # Update intersection states cache
     for intersection_id, data in processed['intersections'].items():
