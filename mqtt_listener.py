@@ -277,88 +277,107 @@ def cleanup_old_data():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Keep only the last 1 hour of telemetry data
-    retention_hours = 1
-    cutoff_timestamp = int(time.time()) - (retention_hours * 60 * 60)
-    
-    cursor.execute("DELETE FROM telemetry WHERE timestamp < ?", (cutoff_timestamp,))
-    deleted_telemetry = cursor.rowcount
-    
-    # Keep only the last hour of state changes
-    cursor.execute("""
-        DELETE FROM traffic_light_states 
-        WHERE timestamp < ?
-    """, (cutoff_timestamp,))
-    deleted_states = cursor.rowcount
-    
-    # Fix any timestamps from before 2024 (likely incorrect)
-    current_year = datetime.now().year
-    current_time = int(time.time())
-    year_2024_timestamp = 1704067200  # Jan 1, 2024
-    
-    cursor.execute("""
-        UPDATE traffic_light_states
-        SET timestamp = ?
-        WHERE timestamp < ?
-    """, (current_time, year_2024_timestamp))
-    
-    fixed_timestamps = cursor.rowcount
-    if fixed_timestamps > 0:
-        print(f"[CLEANUP] Fixed {fixed_timestamps} outdated timestamps (before 2024)")
-    
-    # Remove any invalid state transitions (involving UNKNOWN states)
-    cursor.execute("""
-        DELETE FROM state_durations
-        WHERE previous_state = 'UNKNOWN' OR next_state = 'UNKNOWN'
-    """)
-    deleted_transitions = cursor.rowcount
-    if deleted_transitions > 0:
-        print(f"[CLEANUP] Removed {deleted_transitions} invalid state transitions involving UNKNOWN states")
-    
-    # Check for and fix outdated timestamps (from years ago)
-    current_year = datetime.now().year
+    print("[CLEANUP] Starting database maintenance...")
     current_time = int(time.time())
     
-    # Find records with timestamps more than 1 year old
-    cursor.execute("""
-        SELECT COUNT(*) FROM traffic_light_states
-        WHERE timestamp < ?
-    """, (current_time - 31536000,))  # 31536000 = seconds in a year
-    
-    old_timestamps_count = cursor.fetchone()[0]
-    if old_timestamps_count > 0:
-        print(f"[CLEANUP] Found {old_timestamps_count} state records with timestamps more than 1 year old")
+    try:
+        # Keep only the last 1 hour of telemetry data
+        retention_hours = 1
+        cutoff_timestamp = current_time - (retention_hours * 60 * 60)
         
-        # Option 1: Delete old records
+        cursor.execute("DELETE FROM telemetry WHERE timestamp < ?", (cutoff_timestamp,))
+        deleted_telemetry = cursor.rowcount
+        
+        # Keep only the last hour of state changes, but preserve the most recent state for each light
         cursor.execute("""
-            DELETE FROM traffic_light_states
+            DELETE FROM traffic_light_states 
+            WHERE timestamp < ? AND rowid NOT IN (
+                SELECT MAX(rowid) FROM traffic_light_states GROUP BY light_id, state
+            )
+        """, (cutoff_timestamp,))
+        deleted_states = cursor.rowcount
+        
+        # Fix any timestamps from before 2024 (likely incorrect)
+        year_2024_timestamp = 1704067200  # Jan 1, 2024
+        
+        # First, identify lights with outdated timestamps
+        cursor.execute("""
+            SELECT DISTINCT light_id FROM traffic_light_states
             WHERE timestamp < ?
-        """, (current_time - 31536000,))
+        """, (year_2024_timestamp,))
         
-        print(f"[CLEANUP] Removed {cursor.rowcount} outdated state records")
+        lights_with_old_timestamps = [row[0] for row in cursor.fetchall()]
         
-        # Option 2: Update state_durations with more recent data
+        if lights_with_old_timestamps:
+            print(f"[CLEANUP] Found {len(lights_with_old_timestamps)} lights with outdated timestamps")
+            
+            # For each light with outdated timestamps, keep only the most recent state
+            # and update its timestamp to current time
+            for light_id in lights_with_old_timestamps:
+                # Get the most recent state for this light
+                cursor.execute("""
+                    SELECT state FROM traffic_light_states
+                    WHERE light_id = ?
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                """, (light_id,))
+                
+                result = cursor.fetchone()
+                if result:
+                    current_state = result[0]
+                    
+                    # Delete all outdated records for this light
+                    cursor.execute("""
+                        DELETE FROM traffic_light_states
+                        WHERE light_id = ?
+                    """, (light_id,))
+                    
+                    # Create a new record with current timestamp
+                    cursor.execute("""
+                        INSERT INTO traffic_light_states (light_id, state, timestamp)
+                        VALUES (?, ?, ?)
+                    """, (light_id, current_state, current_time))
+                    
+                    print(f"[CLEANUP] Reset timestamp for light {light_id} to current time with state {current_state}")
+        
+        # Remove any invalid state transitions (involving UNKNOWN states)
+        cursor.execute("""
+            DELETE FROM state_durations
+            WHERE previous_state = 'UNKNOWN' OR next_state = 'UNKNOWN'
+        """)
+        deleted_transitions = cursor.rowcount
+        if deleted_transitions > 0:
+            print(f"[CLEANUP] Removed {deleted_transitions} invalid state transitions")
+        
+        # Update outdated state_durations records
         cursor.execute("""
             UPDATE state_durations
             SET last_updated = ?
             WHERE last_updated < ?
-        """, (datetime.now().isoformat(), datetime.now().replace(year=current_year-1).isoformat()))
+        """, (datetime.now().isoformat(), datetime.now().replace(year=datetime.now().year-1).isoformat()))
         
-        if cursor.rowcount > 0:
-            print(f"[CLEANUP] Updated {cursor.rowcount} outdated state duration records")
+        updated_durations = cursor.rowcount
+        if updated_durations > 0:
+            print(f"[CLEANUP] Updated timestamps for {updated_durations} duration records")
+        
+        # Commit changes before vacuum
+        conn.commit()
+        
+        # Vacuum database to reclaim space (only if we deleted a significant amount of data)
+        if deleted_telemetry > 50 or deleted_states > 50 or deleted_transitions > 0 or lights_with_old_timestamps:
+            cursor.execute("VACUUM")
+            print("[CLEANUP] Database vacuumed to reclaim space")
+        
+        print(f"[CLEANUP] Maintenance complete: Removed {deleted_telemetry} telemetry records, {deleted_states} state records")
+        
+    except Exception as e:
+        print(f"[CLEANUP] Error during database maintenance: {e}")
+        conn.rollback()
+        import traceback
+        traceback.print_exc()
     
-    # Commit changes before vacuum
-    conn.commit()
-    
-    # Vacuum database to reclaim space (only if we deleted a significant amount of data)
-    if deleted_telemetry > 50 or deleted_states > 50 or deleted_transitions > 0 or old_timestamps_count > 0:
-        cursor.execute("VACUUM")
-        print("[CLEANUP] Database vacuumed to reclaim space")
-    
-    conn.close()
-    
-    if deleted_telemetry > 0 or deleted_states > 0:
-        print(f"[CLEANUP] Removed {deleted_telemetry} old telemetry records and {deleted_states} old state records")
+    finally:
+        conn.close()
 
 def initialize_database():
     """Initialize all required database tables"""
