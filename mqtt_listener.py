@@ -218,7 +218,7 @@ def save_telemetry(detector_id, channels, timestamp, counter):
             intersection_states[intersection_id] = {
                 'overall_state': data['overall_state'],
                 'lights': data['lights'],
-                'timestamp': datetime.fromtimestamp(timestamp).isoformat()
+                'timestamp': datetime.now().isoformat()
             }
         
         # Always commit changes
