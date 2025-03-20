@@ -139,55 +139,58 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                 VALUES (?, ?, ?)
             """, (light_id, current_state, timestamp))
 
-        # Track state transition durations
-        prev_state = cursor.execute("""
-            SELECT state 
-            FROM traffic_light_states 
-            WHERE light_id = ? 
-            AND timestamp < ?
-            ORDER BY timestamp DESC 
-            LIMIT 1
-        """, (light_id, timestamp)).fetchone()
-
-        if prev_state and prev_state[0] != current_state:
-            # Get first timestamp of previous state sequence
-            prev_timestamp_result = cursor.execute("""
-                SELECT MIN(timestamp) 
-                FROM traffic_light_states
+        # Only track state transitions for valid states (RED or GREEN)
+        if current_state in ('RED', 'GREEN'):
+            # Track state transition durations
+            prev_state = cursor.execute("""
+                SELECT state 
+                FROM traffic_light_states 
                 WHERE light_id = ? 
-                AND state = ? 
                 AND timestamp < ?
-                AND timestamp > (
-                    SELECT COALESCE(MAX(timestamp), 0) 
-                    FROM traffic_light_states 
+                ORDER BY timestamp DESC 
+                LIMIT 1
+            """, (light_id, timestamp)).fetchone()
+
+            if prev_state and prev_state[0] != current_state and prev_state[0] in ('RED', 'GREEN'):
+                # Get first timestamp of previous state sequence
+                prev_timestamp_result = cursor.execute("""
+                    SELECT MIN(timestamp) 
+                    FROM traffic_light_states
                     WHERE light_id = ? 
-                    AND state != ?
+                    AND state = ? 
                     AND timestamp < ?
-                )
-            """, (light_id, prev_state[0], timestamp, light_id, prev_state[0], timestamp)).fetchone()
-            
-            # Check if prev_timestamp is None before calculating duration
-            if prev_timestamp_result and prev_timestamp_result[0] is not None:
-                prev_timestamp = prev_timestamp_result[0]
-                # Calculate duration from actual state change
-                duration = timestamp - prev_timestamp
-            
-                cursor.execute("""
-                    INSERT OR REPLACE INTO state_durations 
-                    (light_id, previous_state, next_state, duration, last_updated)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (light_id, prev_state[0], current_state, duration, 
-                     datetime.now().isoformat()))
+                    AND timestamp > (
+                        SELECT COALESCE(MAX(timestamp), 0) 
+                        FROM traffic_light_states 
+                        WHERE light_id = ? 
+                        AND state != ?
+                        AND timestamp < ?
+                    )
+                """, (light_id, prev_state[0], timestamp, light_id, prev_state[0], timestamp)).fetchone()
                 
-                print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
-                print(f"  Previous: {prev_state[0]} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
-                print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
-                print(f"  Duration: {duration:.2f}s")
-                print(f"  Recorded at: {datetime.now().isoformat()}")
-            else:
-                print(f"\n[WARNING] Could not determine previous timestamp for light {light_id}")
-                print(f"  Previous state: {prev_state[0]}, Current state: {current_state}")
-                print(f"  No duration recorded")
+                # Check if prev_timestamp is None before calculating duration
+                if prev_timestamp_result and prev_timestamp_result[0] is not None:
+                    prev_timestamp = prev_timestamp_result[0]
+                    # Calculate duration from actual state change
+                    duration = timestamp - prev_timestamp
+            
+                    # Only record transitions between valid states (RED and GREEN)
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO state_durations 
+                        (light_id, previous_state, next_state, duration, last_updated)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (light_id, prev_state[0], current_state, duration, 
+                         datetime.now().isoformat()))
+                    
+                    print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
+                    print(f"  Previous: {prev_state[0]} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
+                    print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
+                    print(f"  Duration: {duration:.2f}s")
+                    print(f"  Recorded at: {datetime.now().isoformat()}")
+                else:
+                    print(f"\n[WARNING] Could not determine previous timestamp for light {light_id}")
+                    print(f"  Previous state: {prev_state[0]}, Current state: {current_state}")
+                    print(f"  No duration recorded")
     
     # Update intersection states cache
     for intersection_id, data in processed['intersections'].items():
@@ -206,6 +209,12 @@ def predict_next_change(light_id, current_state):
     """Predict next change using duration of same type of recent transition"""
     # Only log in debug mode or first prediction
     debug_log = False
+    
+    # If current state is not valid, return default values
+    if current_state not in ('RED', 'GREEN'):
+        if debug_log:
+            print(f"[PREDICT] Light {light_id}: Invalid current state '{current_state}', using defaults")
+        return ('UNKNOWN', 0, 0.0)
     
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -335,11 +344,20 @@ def cleanup_old_data():
     """, (cutoff_timestamp,))
     deleted_states = cursor.rowcount
     
+    # Remove any invalid state transitions (involving UNKNOWN states)
+    cursor.execute("""
+        DELETE FROM state_durations
+        WHERE previous_state = 'UNKNOWN' OR next_state = 'UNKNOWN'
+    """)
+    deleted_transitions = cursor.rowcount
+    if deleted_transitions > 0:
+        print(f"[CLEANUP] Removed {deleted_transitions} invalid state transitions involving UNKNOWN states")
+    
     # Commit changes before vacuum
     conn.commit()
     
     # Vacuum database to reclaim space (only if we deleted a significant amount of data)
-    if deleted_telemetry > 50 or deleted_states > 50:
+    if deleted_telemetry > 50 or deleted_states > 50 or deleted_transitions > 0:
         cursor.execute("VACUUM")
         print("[CLEANUP] Database vacuumed to reclaim space")
     
