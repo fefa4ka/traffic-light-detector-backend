@@ -18,9 +18,10 @@ def predict_next_change(light_id, current_state):
     print(f"\n[PREDICT] Starting prediction for Light {light_id}, current state: {current_state}")
     
     # Define default durations for each state transition
+    # These values are based on typical traffic light patterns
     DEFAULT_DURATIONS = {
         'RED': {'next': 'GREEN', 'duration': 30},
-        'GREEN': {'next': 'RED', 'duration': 60}
+        'GREEN': {'next': 'RED', 'duration': 15}
     }
     
     # Define the expected next state based on current state
@@ -128,8 +129,15 @@ def predict_next_change(light_id, current_state):
                         print(f"[PREDICT] Current state duration: {current_state_duration:.2f}s")
                         print(f"[PREDICT] Predicted total duration: {predicted_duration:.2f}s")
                         
-                        time_remaining = max(0, predicted_duration - current_state_duration)
-                        confidence = 1.0  # Full confidence for recent timestamps
+                        # If current duration is already longer than predicted, use a small remaining time
+                        if current_state_duration >= predicted_duration:
+                            # The light should change soon - use a small value (3 seconds)
+                            time_remaining = 3.0
+                            confidence = 0.8
+                            print(f"[PREDICT] Current duration ({current_state_duration:.2f}s) exceeds predicted ({predicted_duration:.2f}s), expecting change soon")
+                        else:
+                            time_remaining = max(0, predicted_duration - current_state_duration)
+                            confidence = 1.0  # Full confidence for recent timestamps
                     
                     print(f"[PREDICT] Light {light_id} ({current_state}): Next={next_state}, "
                           f"Remaining={time_remaining:.2f}s, Confidence={confidence:.2f}")
@@ -206,8 +214,17 @@ def predict_next_change(light_id, current_state):
                 INSERT INTO traffic_light_states (light_id, state, timestamp)
                 VALUES (?, ?, ?)
             """, (light_id, current_state, int(current_time)))
+            
+            # Also create a default duration record
+            cursor.execute("""
+                INSERT OR REPLACE INTO state_durations 
+                (light_id, previous_state, next_state, duration, last_updated)
+                VALUES (?, ?, ?, ?, ?)
+            """, (light_id, current_state, next_state, default_duration, 
+                 datetime.now().isoformat()))
+                 
             conn.commit()
-            print(f"[PREDICT] Created new timestamp record for light {light_id}")
+            print(f"[PREDICT] Created new timestamp and duration records for light {light_id}")
         except Exception as e:
             print(f"[PREDICT] Error creating timestamp record: {e}")
             

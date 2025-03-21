@@ -40,7 +40,7 @@ def load_prod_fixtures():
         # Define the intersection and traffic lights
         intersection_id = 'Office'
         detector_id = 1761
-        location = '55.754052, 37.620482'
+        location = '56.298955, 38.176181'  # Updated to match actual coordinates from telemetry
         
         # Define all 4 traffic lights with their channels
         traffic_lights = [

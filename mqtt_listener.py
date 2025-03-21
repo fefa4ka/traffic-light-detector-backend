@@ -177,23 +177,50 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                 
                         # Only record transitions if duration is reasonable (between 5 and 300 seconds)
                         if 5 <= duration <= 300:
+                            # Update the average duration using exponential moving average
+                            # Get existing average if any
+                            existing_avg = cursor.execute("""
+                                SELECT duration FROM state_durations
+                                WHERE light_id = ? AND previous_state = ? AND next_state = ?
+                            """, (light_id, prev_state, current_state)).fetchone()
+                            
+                            if existing_avg:
+                                # Use EMA with alpha=0.3 (gives more weight to recent values)
+                                alpha = 0.3
+                                new_duration = (alpha * duration) + ((1 - alpha) * existing_avg[0])
+                            else:
+                                new_duration = duration
+                            
                             cursor.execute("""
                                 INSERT OR REPLACE INTO state_durations 
                                 (light_id, previous_state, next_state, duration, last_updated)
                                 VALUES (?, ?, ?, ?, ?)
-                            """, (light_id, prev_state, current_state, duration, 
+                            """, (light_id, prev_state, current_state, new_duration, 
                                  datetime.now().isoformat()))
                             
                             print(f"\n[DEBUG] Recorded state transition for light {light_id}:")
                             print(f"  Previous: {prev_state} (started at {datetime.fromtimestamp(prev_timestamp).isoformat()})")
                             print(f"  Current: {current_state} (changed at {datetime.fromtimestamp(timestamp).isoformat()})")
-                            print(f"  Duration: {duration:.2f}s")
+                            print(f"  Duration: {duration:.2f}s, Stored average: {new_duration:.2f}s")
                             print(f"  Recorded at: {datetime.now().isoformat()}")
                         else:
                             print(f"\n[WARNING] Unreasonable duration ({duration:.2f}s) for light {light_id}")
                             print(f"  Previous: {prev_state} at {prev_timestamp}")
                             print(f"  Current: {current_state} at {timestamp}")
-                            print(f"  Duration outside valid range (5-300s), not recording")
+                            print(f"  Duration outside valid range (5-300s), using default values")
+                            
+                            # Use default durations based on state
+                            default_duration = 30 if prev_state == 'RED' else 15
+                            
+                            # Still record the transition with a reasonable duration
+                            cursor.execute("""
+                                INSERT OR REPLACE INTO state_durations 
+                                (light_id, previous_state, next_state, duration, last_updated)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (light_id, prev_state, current_state, default_duration, 
+                                 datetime.now().isoformat()))
+                            
+                            print(f"  Recorded with default duration: {default_duration}s")
                     except (ValueError, TypeError) as e:
                         print(f"\n[WARNING] Error calculating duration for light {light_id}: {e}")
                         print(f"  Previous state: {prev_state} at {prev_timestamp} (type: {type(prev_timestamp).__name__})")
