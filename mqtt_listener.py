@@ -143,13 +143,49 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                     ORDER BY timestamp DESC 
                     LIMIT 1
                 """, (light_id,)).fetchone()
-                    
+                
+                # Normalize current timestamp
+                current_timestamp = timestamp
+                if isinstance(current_timestamp, str) and not current_timestamp.isdigit():
+                    try:
+                        current_dt = datetime.fromisoformat(current_timestamp)
+                        current_timestamp = int(current_dt.timestamp())
+                    except ValueError:
+                        current_timestamp = int(time.time())
+                else:
+                    current_timestamp = int(float(current_timestamp))
+                
                 # Only insert a new state record if the state has changed
                 if not prev_state_record or prev_state_record[0] != current_state:
-                    cursor.execute("""
-                        INSERT INTO traffic_light_states (light_id, state, timestamp)
-                        VALUES (?, ?, ?)
-                    """, (light_id, current_state, timestamp))
+                    # Get minimum time between state changes (10 seconds)
+                    MIN_STATE_CHANGE_INTERVAL = 10
+                    
+                    # Check if enough time has passed since the last state change
+                    can_change_state = True
+                    if prev_state_record:
+                        prev_timestamp = prev_state_record[1]
+                        
+                        # Normalize previous timestamp
+                        if isinstance(prev_timestamp, str) and not prev_timestamp.isdigit():
+                            try:
+                                prev_dt = datetime.fromisoformat(prev_timestamp)
+                                prev_timestamp = int(prev_dt.timestamp())
+                            except ValueError:
+                                prev_timestamp = current_timestamp - MIN_STATE_CHANGE_INTERVAL - 1
+                        else:
+                            prev_timestamp = int(float(prev_timestamp))
+                        
+                        # Check if enough time has passed
+                        time_since_last_change = current_timestamp - prev_timestamp
+                        if time_since_last_change < MIN_STATE_CHANGE_INTERVAL:
+                            can_change_state = False
+                            print(f"[INFO] Ignoring rapid state change for light {light_id}: {prev_state_record[0]} -> {current_state} (only {time_since_last_change}s elapsed)")
+                    
+                    if can_change_state:
+                        cursor.execute("""
+                            INSERT INTO traffic_light_states (light_id, state, timestamp)
+                            VALUES (?, ?, ?)
+                        """, (light_id, current_state, current_timestamp))
                 
                 # Check if this is a state transition
                 if prev_state_record and prev_state_record[0] != current_state and prev_state_record[0] in ('RED', 'GREEN'):
@@ -160,20 +196,36 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                     try:
                         if isinstance(prev_timestamp, str) and not prev_timestamp.isdigit():
                             # Try to parse ISO format
-                            prev_dt = datetime.fromisoformat(prev_timestamp)
-                            prev_timestamp = int(prev_dt.timestamp())
+                            try:
+                                prev_dt = datetime.fromisoformat(prev_timestamp)
+                                prev_timestamp = int(prev_dt.timestamp())
+                            except ValueError:
+                                prev_timestamp = current_timestamp - 30  # Default to 30 seconds ago if parsing fails
                         else:
                             prev_timestamp = int(float(prev_timestamp))
                             
                         # Ensure current timestamp is numeric
                         if isinstance(timestamp, str) and not timestamp.isdigit():
-                            current_dt = datetime.fromisoformat(timestamp)
-                            timestamp = int(current_dt.timestamp())
+                            try:
+                                current_dt = datetime.fromisoformat(timestamp)
+                                timestamp = int(current_dt.timestamp())
+                            except ValueError:
+                                timestamp = int(time.time())
                         else:
                             timestamp = int(float(timestamp))
                             
                         # Calculate duration
                         duration = timestamp - prev_timestamp
+                        
+                        # For traffic lights, typical durations are 10-120 seconds
+                        # Adjust the range to be more realistic for your specific traffic lights
+                        if duration < 5:
+                            # If duration is too short, use a reasonable default based on the state
+                            if prev_state == 'RED':
+                                duration = 30  # Default RED duration
+                            else:
+                                duration = 15  # Default GREEN duration
+                            print(f"[INFO] Adjusted too short duration for light {light_id} from {timestamp - prev_timestamp}s to {duration}s")
                 
                         # Only record transitions if duration is reasonable (between 5 and 300 seconds)
                         if 5 <= duration <= 300:
