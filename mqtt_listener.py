@@ -226,9 +226,20 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                             else:
                                 duration = 15  # Default GREEN duration
                             print(f"[INFO] Adjusted too short duration for light {light_id} from {timestamp - prev_timestamp}s to {duration}s")
+                            
+                            # Also update the timestamp to make future calculations correct
+                            new_timestamp = prev_timestamp + duration
+                            cursor.execute("""
+                                UPDATE traffic_light_states
+                                SET timestamp = ?
+                                WHERE light_id = ? AND state = ? AND timestamp = ?
+                            """, (new_timestamp, light_id, current_state, timestamp))
+                            print(f"[INFO] Updated timestamp for current state from {timestamp} to {new_timestamp}")
+                            
+                            # Update timestamp for future calculations
+                            timestamp = new_timestamp
                 
-                        # Only record transitions if duration is reasonable (between 5 and 300 seconds)
-                        if 5 <= duration <= 300:
+                        # Always record transitions, but use reasonable values
                             # Update the average duration using exponential moving average
                             # Get existing average if any
                             existing_avg = cursor.execute("""
