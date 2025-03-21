@@ -40,38 +40,44 @@ def load_prod_fixtures():
         # Define the intersection and traffic lights
         intersection_id = 'Office'
         detector_id = 1761
-        location = '56.298955, 38.176181'  # Updated to match actual coordinates from telemetry
-        
+
+        location_1 = '56.298850, 38.176041'
+        location_2 = '56.298955, 38.176181'
+        location_3 = '56.299166, 38.175852'
+        location_4 = '56.299019, 38.175759'
+
         # Define all 4 traffic lights with their channels
         traffic_lights = [
             {
                 'name': 'Office Light 1',
-                'location': location,
+                'location': location_2,
                 'intersection_id': intersection_id,
                 'red_channel': 0,
                 'green_channel': 4
             },
             {
                 'name': 'Office Light 2',
-                'location': location,
+                'location': location_4,
                 'intersection_id': intersection_id,
                 'red_channel': 1,
                 'green_channel': 5
             },
             {
                 'name': 'Office Light 3',
-                'location': location,
+                'location': location_3,
                 'intersection_id': intersection_id,
                 'red_channel': 8,
                 'green_channel': 12
             },
             {
                 'name': 'Office Light 4',
-                'location': location,
+                'location': location_1,
                 'intersection_id': intersection_id,
                 'red_channel': 9,
                 'green_channel': 13
             }
+        ]
+
         ]
         
         print("Loading production fixtures:")
