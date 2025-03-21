@@ -239,7 +239,8 @@ def save_telemetry(detector_id, channels, timestamp, counter):
                             # Update timestamp for future calculations
                             timestamp = new_timestamp
                 
-                        # Always record transitions, but use reasonable values
+                        # Check if duration is reasonable (between 5 and 300 seconds)
+                        if 5 <= duration <= 300:
                             # Update the average duration using exponential moving average
                             # Get existing average if any
                             existing_avg = cursor.execute("""
